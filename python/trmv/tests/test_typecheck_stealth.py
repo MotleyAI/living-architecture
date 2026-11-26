@@ -66,10 +66,16 @@ def test_checkout_is_removed_and_pruned(repo: Path) -> None:
     assert str(checkout) not in _git(repo, "worktree", "list", "--porcelain")
 
 
-def test_checkout_is_removed_and_pruned_on_an_exception(repo: Path) -> None:
-    seen: list[Path] = []
-    with pytest.raises(RuntimeError, match="boom"), merge_base_checkout(repo, _git(repo, "rev-parse", "HEAD").strip(), []) as checkout:
+def _fail_inside(repo: Path, commit: str, seen: list[Path]) -> None:
+    with merge_base_checkout(repo, commit, []) as checkout:
         seen.append(checkout)
         raise RuntimeError("boom")
+
+
+def test_checkout_is_removed_and_pruned_on_an_exception(repo: Path) -> None:
+    seen: list[Path] = []
+    commit = _git(repo, "rev-parse", "HEAD").strip()
+    with pytest.raises(RuntimeError, match="boom"):
+        _fail_inside(repo, commit, seen)
     assert not seen[0].exists()
     assert str(seen[0]) not in _git(repo, "worktree", "list", "--porcelain")

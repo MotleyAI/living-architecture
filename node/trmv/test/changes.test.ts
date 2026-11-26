@@ -68,7 +68,8 @@ describe('resolveBaseRef', () => {
   });
 
   it('names the remote-tracking ref when it does not resolve', () => {
-    expect(() => resolveBaseRef('upstream/nope', withUpstream().root)).toThrow(
+    const { root } = withUpstream();
+    expect(() => resolveBaseRef('upstream/nope', root)).toThrow(
       new ConfigError('git rev-parse --verify --quiet refs/remotes/upstream/nope failed'),
     );
   });

@@ -5,6 +5,9 @@ description: Use to carve or tighten ONE architecture boundary in a repo with th
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `trmv-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
+**Stealth mode:** if `la-config get stealth` prints `true`, STOP and tell the user this skill does not run in stealth
+mode: a model that is not versioned with the code cannot stay true across branches.
+
 # Carve one boundary slice
 
 A slice moves code until a batch of grandfathered edges dies, with a

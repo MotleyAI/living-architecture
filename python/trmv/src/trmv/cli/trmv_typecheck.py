@@ -9,6 +9,7 @@ def trmv_typecheck(argv: list[str] | None = None) -> int:
         "trmv-typecheck",
         command_argv(argv),
         lambda args: typecheck.run(
-            cwd=Path.cwd(), write=args.write_baseline, language_id=args.language, realign_from=args.realign_from
+            cwd=Path.cwd(), write=args.write_baseline, language_id=args.language, realign_from=args.realign_from,
+            base=args.base,
         ),
     )

@@ -7,6 +7,12 @@ description: Use when the user asks to process / triage / address / handle PR re
 
 # Process unresolved review feedback (CodeRabbit + SonarQube + Codex + failed CI)
 
+**Stealth mode** (`la-config get stealth` prints `true`): replies and NOSONAR reasons never mention la, trmv, OpenSpec,
+specs, stage names or any `la-*`/`trmv-*` command. Post only through `la-reply-to-pr-thread` or
+`la-reply-invalid-coderabbit`, which refuse a leaking body; on a refusal, reword and post again. Never post through
+raw `gh` or an MCP tool. A conventions waiver goes in the waiver ledger the RED verdict names, never in an inline
+comment.
+
 Combine CodeRabbit, SonarQube, Codex, and failed CI feedback into a single triage workflow: one sweep over every source. Run standalone, it stops at a written plan and does not start fixing. Invoked from `la:pr-review`, it returns the triaged list and `la:pr-review` fixes it.
 
 **Sources on this PR.** Run `la-pr-reviewers <PR>` first. It prints `{"coderabbit": <bool>, "sonar": {"present": <bool>, "project_key": <key|null>}}`, detected from the PR itself, never from the repo config. Sonar counts as present once HEAD has a Sonar check suite, before its check run exists. Skip every step for a bot that is not on the PR (its fetches, validation, invalid-handling, and plan header count — show it as `off`). Re-run it at each sweep: CodeRabbit can first appear after a push.

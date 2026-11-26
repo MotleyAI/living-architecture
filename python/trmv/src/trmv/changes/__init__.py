@@ -11,7 +11,18 @@ from pathlib import Path
 from trmv.config import ConfigError
 from trmv.contract import base_fetch_timeout, message
 
-__all__ = ["base_paths", "changed_paths", "commit_id", "file_at", "git_paths", "is_commit", "merge_base", "resolve_base_ref"]
+__all__ = [
+    "base_paths",
+    "changed_paths",
+    "commit_id",
+    "default_base_ref",
+    "file_at",
+    "git_paths",
+    "is_commit",
+    "merge_base",
+    "resolve_base_ref",
+    "tracked_at_head",
+]
 
 # Neither git nor ssh may prompt during the fetch: no terminal prompt and no askpass helper.
 _NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "", "SSH_ASKPASS": "", "SSH_ASKPASS_REQUIRE": "never"}
@@ -40,11 +51,11 @@ def git_paths(args: list[str], *, repo_root: Path) -> list[str]:
     return [p.decode("utf-8", "surrogateescape") for p in _git(args, cwd=repo_root).split(b"\0") if p]
 
 
-def _bounded_fetch(base: str, repo_root: Path, timeout: float) -> None:
-    """`git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds."""
+def _bounded_fetch(remote: str, branch: str, repo_root: Path, timeout: float) -> None:
+    """`git fetch <remote> <branch>` in its own process group, the whole group killed after `timeout` seconds."""
     env = {**os.environ, **_NO_PROMPT}
     try:
-        proc = subprocess.Popen(["git", "fetch", "origin", base, "--quiet"], cwd=repo_root, stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(["git", "fetch", remote, branch, "--quiet"], cwd=repo_root, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, start_new_session=True)
     except OSError:
         return
@@ -59,12 +70,35 @@ def _bounded_fetch(base: str, repo_root: Path, timeout: float) -> None:
         proc.wait()
 
 
+def _remotes(repo_root: Path) -> list[str]:
+    """The configured git remotes; none when git cannot list them."""
+    try:
+        proc = subprocess.run(["git", "remote"], cwd=repo_root, capture_output=True, check=False)
+    except OSError:
+        return []
+    return proc.stdout.decode("utf-8", "surrogateescape").split() if proc.returncode == 0 else []
+
+
 def resolve_base_ref(*, base: str, repo_root: Path, fetch_timeout: float | None = None) -> str:
-    """`origin/<base>` after a best-effort, bounded, non-prompting fetch; ConfigError when it does not resolve."""
-    _bounded_fetch(base, repo_root, base_fetch_timeout() if fetch_timeout is None else fetch_timeout)
-    ref = f"origin/{base}"
+    """The base ref `base` names, after a best-effort, bounded, non-prompting fetch: `refs/remotes/<remote>/<rest>` when
+    `base` is `<remote>/<rest>` of a configured remote, else `origin/<base>`; ConfigError when it does not resolve."""
+    timeout = base_fetch_timeout() if fetch_timeout is None else fetch_timeout
+    remote, _, rest = base.partition("/")
+    if rest and remote in _remotes(repo_root):
+        _bounded_fetch(remote, rest, repo_root, timeout)
+        ref = f"refs/remotes/{remote}/{rest}"
+    else:
+        _bounded_fetch("origin", base, repo_root, timeout)
+        ref = f"origin/{base}"
     _git(["rev-parse", "--verify", "--quiet", ref], cwd=repo_root)
     return ref
+
+
+def default_base_ref(repo_root: Path) -> str | None:
+    """The ref `refs/remotes/origin/HEAD` points to, None without it."""
+    proc = _started(["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], cwd=repo_root)
+    ref = proc.stdout.decode().strip()
+    return ref if proc.returncode == 0 and ref else None
 
 
 def changed_paths(*, base_ref: str, repo_root: Path, deletions: bool, untracked: bool) -> list[str]:
@@ -103,6 +137,11 @@ def file_at(*, ref: str, path: str, repo_root: Path) -> bytes | None:
     """The bytes of repo-relative `path` at `ref`, None when it is not there."""
     proc = subprocess.run(["git", "cat-file", "blob", f"{ref}:{path}"], cwd=repo_root, capture_output=True, check=False)
     return proc.stdout if proc.returncode == 0 else None
+
+
+def tracked_at_head(*, path: str, repo_root: Path) -> bool:
+    """Whether HEAD tracks repo-relative `path`."""
+    return file_at(ref="HEAD", path=path, repo_root=repo_root) is not None
 
 
 def base_paths(*, ref: str, repo_root: Path) -> dict[str, str]:

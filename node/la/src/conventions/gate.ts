@@ -1,10 +1,12 @@
 // `la-check-conventions`: the deterministic conventions gate over a change's source files, every language.
 import { spawnSync } from 'node:child_process';
 import { changedPaths, resolveBaseRef } from 'type-rename-move/changes';
-import { ConfigError } from 'type-rename-move/config';
-import { loadConfig } from '../config/index.js';
-import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message } from '../contract/index.js';
+import { join } from 'node:path';
+import { ConfigError, stealthDir } from 'type-rename-move/config';
+import { loadRaw, resolveRaw } from '../config/index.js';
+import { byCodePoint, conventions, fixed1, fnmatch, isTestFile, language, languageIds, message, stealthPath } from '../contract/index.js';
 import { collect, FactsError, type Facts, languageOf } from './facts.js';
+import { type LedgerEntry, loadLedger, waived as ledgerWaived } from './ledger.js';
 
 /** The base branch of PR `pr`; ConfigError when `gh` cannot tell. */
 export function prBaseBranch(pr: string | null, repo: string | null, repoRoot: string): string {
@@ -60,8 +62,20 @@ function waiverExamples(languages: (string | null)[]): string {
 
 const applies = (rule: string, testFile: boolean): boolean => testFile || !conventions().rules[rule].tests_only;
 
+/** Where waivers come from: inline comments, or in stealth mode the ledger at `ledger` and its entries. */
+interface Waivers {
+  ledger: string | null;
+  entries: LedgerEntry[];
+}
+
+const INLINE: Waivers = { ledger: null, entries: [] };
+
+function isWaived(waivers: Waivers, path: string, rule: string, text: string, id: string): boolean {
+  return waivers.ledger !== null ? ledgerWaived(waivers.entries, { path, rule, line: text }) : waived({ text, rule, language: id });
+}
+
 /** The entry's findings for the configured `rules`; a file error only when one of them applies to the file. */
-function violations(entry: Facts, rules: string[]): Violation[] {
+function violations(entry: Facts, rules: string[], waivers: Waivers): Violation[] {
   const rel: string = entry.path;
   const testFile = isTestFile(rel);
   if (FAILURES.has(entry.status)) {
@@ -71,7 +85,7 @@ function violations(entry: Facts, rules: string[]): Violation[] {
   if (entry.status !== 'ok') return [];
   const id = languageOf(rel) ?? '';
   return (entry.detections as Facts[])
-    .filter((d) => rules.includes(d.rule) && applies(d.rule, testFile) && !waived({ text: d.text, rule: d.rule, language: id }))
+    .filter((d) => rules.includes(d.rule) && applies(d.rule, testFile) && !isWaived(waivers, rel, d.rule, d.text, id))
     .map((d) => ({ path: rel, line: d.line, rule: d.rule, message: message(d.message_id, d.values) }));
 }
 
@@ -116,12 +130,12 @@ function select(rels: string[], explicit: boolean, excludes: string[]): string[]
 }
 
 /** Violations of the configured `rules` in path order, the ratio groups, the summary and the verdict. */
-function report(rels: string[], facts: Map<string, Facts>, capPct: number, rules: string[]): number {
+function report(rels: string[], facts: Map<string, Facts>, capPct: number, rules: string[], waivers: Waivers): number {
   const found: Violation[] = [];
   const groups: Record<string, FileCounts[]> = { source: [], tests: [] };
   for (const rel of rels) {
     const entry = facts.get(rel) as Facts;
-    found.push(...violations(entry, rules));
+    found.push(...violations(entry, rules, waivers));
     if (entry.status === 'ok') groups[isTestFile(rel) ? 'tests' : 'source']?.push({ rel, text: entry.text_lines, total: entry.total_lines });
   }
   found.sort((a, b) => byCodePoint(a.path, b.path) || a.line - b.line || byCodePoint(a.rule, b.rule));
@@ -131,7 +145,8 @@ function report(rels: string[], facts: Map<string, Facts>, capPct: number, rules
   const label = filesLabel(languages);
   err(message('conventions.summary', { count: found.length, files: rels.length, label }));
   const status = found.length > 0 || ratioRed ? 1 : 0;
-  out(status === 0 ? message('conventions.clear', { label }) : message('conventions.red', { waivers: waiverExamples(languages) }));
+  const examples = waivers.ledger === null ? waiverExamples(languages) : message('conventions.waiver-ledger', { path: waivers.ledger });
+  out(status === 0 ? message('conventions.clear', { label }) : message('conventions.red', { waivers: examples }));
   return status;
 }
 
@@ -145,13 +160,24 @@ export interface GateOptions {
   capPct: number | null;
 }
 
+/** The stealth waiver ledger and its entries; ConfigError when it is not a valid ledger. */
+function stealthWaivers(repoRoot: string): Waivers {
+  const directory = stealthDir(repoRoot, 'la');
+  if (directory === null) return INLINE;
+  const ledger = join(directory, stealthPath('waiver_ledger'));
+  return { ledger, entries: loadLedger(ledger) };
+}
+
 /** The gate end to end: resolve the changed files, collect their facts, print the report and verdict. */
 export function checkConventions(options: GateOptions): number {
   const { repoRoot, files } = options;
   let config;
+  let waivers: Waivers;
   let rels: string[];
   try {
-    config = loadConfig(repoRoot);
+    const raw = loadRaw(repoRoot);
+    config = resolveRaw(repoRoot, raw);
+    waivers = raw.source?.stealth ? stealthWaivers(repoRoot) : INLINE;
     rels = files.length > 0 ? files : changedSourceFiles(options);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
@@ -167,5 +193,5 @@ export function checkConventions(options: GateOptions): number {
     if (error.message) err(message('conventions.error', { error: error.message }));
     return 2;
   }
-  return report(rels, facts, options.capPct ?? config.conventions.text_ratio_max * 100, config.conventions.rules);
+  return report(rels, facts, options.capPct ?? config.conventions.text_ratio_max * 100, config.conventions.rules, waivers);
 }

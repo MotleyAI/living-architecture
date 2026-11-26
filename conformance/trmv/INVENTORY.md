@@ -73,7 +73,7 @@ restructure; their goldens are hand-written.
 | *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-trmv-typescript-missing-node` |
 | *(new)* `--twin` (internal option) prints `<language> <version> <trmv-hash>`, per twin | 0 | `doctor-trmv-twin-identity-python`, `doctor-trmv-twin-identity-typescript` |
 | *(new)* stealth: `--require-config` accepts trmv's or la's stealth file, the ok line names it; a stray file ignored through `.git/info/exclude` or the repo's own tracked baseline is no finding | 0 | `doctor-trmv-stealth-require-config`, `doctor-trmv-stealth-la-file`, `doctor-trmv-stealth-ignored-baseline`, `doctor-trmv-stealth-tracked-baseline` |
-| *(new)* stealth registry findings: an untracked, unignored `trmv.yaml` or `.basedpyright/baseline.json`; both stealth files present | 1 | `doctor-trmv-stealth-untracked-config`, `doctor-trmv-stealth-untracked-baseline`, `doctor-trmv-stealth-multiple-files` |
+| *(new)* stealth registry findings: an untracked, unignored `trmv.yaml` or `.basedpyright/baseline.json`; a staged `.tsc-baseline.json`; both stealth files present | 1 | `doctor-trmv-stealth-untracked-config`, `doctor-trmv-stealth-untracked-baseline`, `doctor-trmv-stealth-staged-baseline`, `doctor-trmv-stealth-multiple-files` |
 
 ## trmv-typecheck
 

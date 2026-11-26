@@ -2,7 +2,7 @@
 // check, language detection and config-command machinery la's config builds on.
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import {
   PyFloat,
   capturingGroups,
@@ -20,7 +20,7 @@ import {
   validate,
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
-import { configSource, ownFile } from './files.js';
+import { findConfig, ownFile, stealthRefusal, displayName } from './files.js';
 import { parseConfig, readConfigText } from './read.js';
 
 export { type Handler, commandRoot, optional, runCommand } from './command.js';
@@ -38,7 +38,20 @@ export {
   stampFormat,
 } from './format.js';
 export { parseConfig, readConfigText } from './read.js';
-export { bothFilesProblem, configSource, ownFile } from './files.js';
+export {
+  type ConfigFile,
+  commonDir,
+  configSource,
+  displayName,
+  filesProblem,
+  findConfig,
+  isStealth,
+  ownFile,
+  presentFiles,
+  stealthDir,
+  stealthRefusal,
+} from './files.js';
+export { strayFindings, strayPaths, trmvStrayFindings } from './registry.js';
 
 /** The schema of trmv's own config file, named after it. */
 function ownSchema(): ReturnType<typeof schema> {
@@ -99,7 +112,7 @@ function project(sub: Record<string, any>, data: unknown): unknown {
 
 /** The trmv keys of config file `name`'s data: all of trmv's own file, and trmv's share of another package's file. */
 export function trmvData(data: unknown, name: string): unknown {
-  return name === ownFile() || !(data instanceof Map) ? data : project(ownSchema(), data);
+  return basename(name) === ownFile() || !(data instanceof Map) ? data : project(ownSchema(), data);
 }
 
 /** Error unless every pattern is portable and holds exactly one capturing group. */
@@ -123,15 +136,19 @@ export function resolveConfig(data: unknown): TrmvConfig {
 
 /** trmv's share of the config file it reads, and that file's name; [null, null] without one. */
 export function loadDrData(root: string): [unknown, string | null] {
-  const name = configSource(root);
-  return name === null ? [null, null] : [trmvData(readConfig(root, name), name), name];
+  const found = findConfig(root, 'trmv');
+  if (found === null) return [null, null];
+  const name = displayName(found);
+  const data = readConfig(root, name);
+  if (found.stealth) stealthRefusal(data, name);
+  return [trmvData(data, name), name];
 }
 
 function resolved(root: string, data: unknown, name: string | null): TrmvConfig {
   try {
     return resolveConfig(data);
   } catch (error) {
-    throw new ConfigError(`${join(root, String(name))}: ${(error as Error).message}`);
+    throw new ConfigError(`${name !== null && isAbsolute(name) ? name : join(root, String(name))}: ${(error as Error).message}`);
   }
 }
 
@@ -195,12 +212,14 @@ export function languageFact(id: string, key: string): unknown {
 }
 
 /** A resolved config as a config command prints it: its dumpable values, the keys a local file overrides (in
- * `localFile`), and what language detection reads. */
+ * `localFile`), what language detection reads, the stealth file read, and the values `get` derives (`show` omits them). */
 export interface ConfigView {
   values: unknown;
   overrides: string[];
   localFile: string | null;
   languages: LanguageSettings;
+  stealthFile?: string | null;
+  derived?: Record<string, unknown>;
 }
 
 function lookup(data: unknown, dotted: string): unknown {
@@ -240,6 +259,7 @@ function withView(prog: string, root: string, load: (root: string) => ConfigView
 export function runShow(prog: string, root: string, load: (root: string) => ConfigView): number {
   return withView(prog, root, load, (view) => {
     process.stdout.write(`${pyJson(view.values, 2)}\n`);
+    if (view.stealthFile) process.stderr.write(`${message('config.stealth-note', { prog, path: view.stealthFile })}\n`);
     for (const key of view.overrides) {
       process.stderr.write(`${message('config.local-override', { prog, key, file: view.localFile })}\n`);
     }
@@ -265,6 +285,7 @@ function printLanguages(prog: string, root: string, view: ConfigView): number {
 }
 
 function value(view: ConfigView, key: string): unknown {
+  if (view.derived !== undefined && Object.hasOwn(view.derived, key)) return view.derived[key];
   const parts = key.split('.');
   if (parts[0] === 'lang' && parts.length === 3) return languageFact(parts[1] ?? '', parts[2] ?? '');
   if (parts[0] === 'lang') throw new RangeError(key);
@@ -289,7 +310,14 @@ export function runGet(prog: string, root: string, key: string, load: (root: str
 }
 
 /** trmv's config at `root`, as `trmv-config` prints it. */
+export function stealthView(root: string, pkg: string): [string | null, Record<string, unknown>] {
+  const found = findConfig(root, pkg);
+  const stealth = found?.stealth ?? false;
+  return [found !== null && stealth ? displayName(found) : null, { stealth }];
+}
+
 export function trmvView(root: string): ConfigView {
   const [config, languages] = loadWithLanguages(root);
-  return { values: schemaOrdered(ownSchema(), config), overrides: [], localFile: null, languages };
+  const [stealthFile, derived] = stealthView(root, 'trmv');
+  return { values: schemaOrdered(ownSchema(), config), overrides: [], localFile: null, languages, stealthFile, derived };
 }

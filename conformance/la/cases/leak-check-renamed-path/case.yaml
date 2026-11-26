@@ -17,7 +17,7 @@ git:
   - main
 - branch: feat
 - rename:
-    docs/x.md: trmv.yaml
+    docs/x.md: docs/trmv.yaml
 - commit: Move notes
 expect:
   exit: 1

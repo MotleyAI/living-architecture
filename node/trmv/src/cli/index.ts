@@ -25,7 +25,7 @@ const HANDLERS: Record<string, Handler> = {
     return doctor.run(commandRoot(args.root), optional(args.plugin), Boolean(args.contract_hash), Boolean(args.require_config));
   },
   'trmv-typecheck': (args) =>
-    typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language), optional(args.realign_from)),
+    typecheck.run(process.cwd(), Boolean(args.write_baseline), optional(args.language), optional(args.realign_from), optional(args.base)),
   'trmv-refactor': (args, argv) => refactor.runRefactor(argv, given(args) as refactor.RefactorArgs),
   'trmv-compliance': (args) => refactor.runCompliance(args.paths as string[], optional(args.select), args.attr as string[]),
   'trmv-mock-lint': (args) => refactor.runMockLint(args.paths as string[], optional(args.base)),

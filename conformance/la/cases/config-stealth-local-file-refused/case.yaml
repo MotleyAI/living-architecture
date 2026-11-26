@@ -14,5 +14,6 @@ expect:
   stderr:
     contains:
     - living-architecture.local.yaml
+    - 'la-config: living-architecture.local.yaml is refused in stealth mode, since the stealth config is already per person; delete it'
 note: a repo-root local file is a config error in stealth mode
 golden: manual

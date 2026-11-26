@@ -33,5 +33,6 @@ expect:
   stderr:
     contains:
     - <ROOT>/repo/.git/living-architecture/waivers.yaml
+    - 'la-check-conventions: <ROOT>/repo/.git/living-architecture/waivers.yaml: not a valid waiver ledger: entry 0: rule ''text-ratio'' is not waivable'
 golden: manual
 note: 'stealth: a ledger entry naming the unwaivable text-ratio rule is an error naming the ledger'

@@ -14,5 +14,6 @@ expect:
     contains:
     - architecture
     - <ROOT>/repo/.git/living-architecture/living-architecture.yaml
+    - 'trmv-config: <ROOT>/repo/.git/living-architecture/living-architecture.yaml: architecture: true is refused in a stealth config, since the model would show in the repo'
 note: 'trmv reading la''s stealth config refuses architecture: true too'
 golden: manual

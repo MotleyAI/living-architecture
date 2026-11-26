@@ -80,8 +80,9 @@ def read_committed(root: Path, file: str) -> Committed | None:
 
 def format_problem(data: dict[Any, Any], file: str, current: str | None = None) -> str | None:
     """The refusal of config file `file`'s `format`, or None when it declares `current` (default: its current format)."""
-    current = current or current_format(file)
-    kind = "format.trmv-" if file == own_file() else "format."
+    name = Path(file).name
+    current = current or current_format(name)
+    kind = "format.trmv-" if name == own_file() else "format."
     if FORMAT_KEY not in data:
         return message(f"{kind}missing", current=current)
     declared = data[FORMAT_KEY]
@@ -93,17 +94,15 @@ def format_problem(data: dict[Any, Any], file: str, current: str | None = None) 
     return message(f"{kind}newer" if sign > 0 else f"{kind}older", declared=declared, current=current)
 
 
-def check_format(root: Path, file: str | None = None) -> str | None:
-    """The format check's refusal for config file `file` (default: the one trmv reads), or None to go on (also for a
-    committed file it cannot judge)."""
-    file = file or config_source(root)
-    if file is None:
-        return None
+def check_format(root: Path, package: str = "trmv") -> str | None:
+    """The format check's refusal for the config file `package` reads, or None to go on (also without one, with
+    several, or for a file it cannot judge)."""
     try:
-        committed = read_committed(root, file)
+        file = config_source(root, package)
+        committed = None if file is None else read_committed(root, file)
     except ConfigError:
         return None
-    return None if committed is None or committed.data is None else format_problem(committed.data, file)
+    return None if committed is None or committed.data is None else format_problem(committed.data, file or "")
 
 
 def _unordered_repr(value: object) -> str:

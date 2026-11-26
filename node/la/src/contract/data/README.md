@@ -9,16 +9,17 @@ own registry, else from trmv's.
 |---|---|
 | `schema/living-architecture.schema.json` | la's config keys, types, bounds, cross-field rules, defaults; trmv's keys by reference to trmv's schema |
 | `schema/living-architecture.local.schema.json` | the per-person keys `living-architecture.local.yaml` may override |
+| `schema/waiver-ledger.schema.json` | the stealth waiver ledger `waivers.yaml` |
 | `schema/index.schema.json` | the `architecture/index.yaml` shape |
 | `schema/node.schema.json` | a node's `metadata { }` block in the LikeC4 model |
 | `schema/facts.schema.json`, `schema/conventions-facts.schema.json` | one language's architecture or conventions facts, as one twin hands them to the other |
 | `schema/affected-request.schema.json`, `schema/affected-response.schema.json` | the change set one twin hands the other for `la-affected-tests`, and that language's selected tests |
-| `config.yaml` | la's committed config file and its local override file |
+| `config.yaml` | la's committed config file, its local override file, and the paths of stealth mode: the plan store, the waiver ledger, the private OpenSpec store and la's stealth path registry |
 | `findings.yaml` | every finding, verdict and hint an la command prints, by id; the arch-check ids |
 | `cli.yaml` | every la command's options, positionals, subcommands and exit codes |
 | `conventions.yaml` | conventions-gate rules and the waiver syntax |
 | `architecture.yaml` | the LikeC4 layout: the canonical model and views files, their blocks, the source extensions |
-| `vectors/` | input/output vectors both test suites consume |
+| `vectors/` | input/output vectors both test suites consume; `stealth-leaks.yaml` is also the leak-token list `la-leak-check` reads |
 | `scripts/` | the review helpers (bash, `gh`, `jq`) |
 
 ## LikeC4 layout

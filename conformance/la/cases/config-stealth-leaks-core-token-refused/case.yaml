@@ -13,5 +13,6 @@ expect:
   stderr:
     contains:
     - '''living-architecture'''
+    - 'la-config: <ROOT>/repo/.git/living-architecture/living-architecture.yaml: leaks.allow holds ''living-architecture'', which is not a waivable leak token'
 note: a core token cannot be allowed; the error names the token
 golden: manual

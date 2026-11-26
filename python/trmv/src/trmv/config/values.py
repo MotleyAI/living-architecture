@@ -11,13 +11,14 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from trmv.config.languages import language_fact, repo_languages
-from trmv.config.load import ConfigError, LanguageSettings, load_with_languages
+from trmv.config.load import ConfigError, LanguageSettings, find_config, load_with_languages
 from trmv.contract import message
 
 
 class ConfigView(BaseModel):
     """A resolved config as a config command prints it: its values, the keys a local file overrides (in
-    `local_file`), and what language detection reads."""
+    `local_file`), what language detection reads, the stealth file read, and the values `get` derives (`show` omits
+    them)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -25,6 +26,8 @@ class ConfigView(BaseModel):
     overrides: list[str] = []
     local_file: str | None = None
     languages: LanguageSettings
+    stealth_file: str | None = None
+    derived: dict[str, Any] = {}
 
 
 def _lookup(data: Any, dotted: str) -> Any:
@@ -61,6 +64,8 @@ def run_show(prog: str, root: Path, load: Callable[[Path], ConfigView]) -> int:
 
     def show(view: ConfigView) -> int:
         print(json.dumps(view.values, indent=2))
+        if view.stealth_file is not None:
+            print(message("config.stealth-note", prog=prog, path=view.stealth_file), file=sys.stderr)
         for key in view.overrides:
             print(message("config.local-override", prog=prog, key=key, file=view.local_file), file=sys.stderr)
         return 0
@@ -82,6 +87,8 @@ def _languages(prog: str, root: Path, view: ConfigView) -> int:
 
 
 def _value(view: ConfigView, key: str) -> Any:
+    if key in view.derived:
+        return view.derived[key]
     lang_key = key.split(".")
     if lang_key[0] == "lang" and len(lang_key) == 3:
         return language_fact(lang_key[1], lang_key[2])
@@ -106,7 +113,15 @@ def run_get(prog: str, root: Path, key: str, load: Callable[[Path], ConfigView])
     return _with_view(prog, root, load, get)
 
 
+def stealth_view(root: Path, package: str) -> tuple[str | None, dict[str, Any]]:
+    """The stealth file `package` reads at `root` (None outside stealth mode), and the derived `stealth` value."""
+    found = find_config(root, package)
+    stealth = found is not None and found.stealth
+    return (found.display() if found is not None and stealth else None), {"stealth": stealth}
+
+
 def trmv_view(root: Path) -> ConfigView:
     """trmv's config at `root`, as `trmv-config` prints it."""
     config, languages = load_with_languages(root)
-    return ConfigView(values=config.model_dump(), languages=languages)
+    stealth_file, derived = stealth_view(root, "trmv")
+    return ConfigView(values=config.model_dump(), languages=languages, stealth_file=stealth_file, derived=derived)

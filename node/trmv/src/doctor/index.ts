@@ -3,11 +3,12 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ConfigError,
-  bothFilesProblem,
   checkFormat,
   configSource,
+  filesProblem,
   loadWithLanguages,
   repoLanguages,
+  trmvStrayFindings,
 } from '../config/index.js';
 import { TRMV, contractHash, language, message, pluginProblem, which } from '../contract/index.js';
 import { NATIVE_LANGUAGE, VERSION } from '../index.js';
@@ -40,19 +41,20 @@ function configProblems(root: string, requireConfig: boolean): [string[], string
   return [problems, languages.flatMap((id) => language(id).executables as string[])];
 }
 
-/** Problems found; empty means healthy. Both config files present replace every check that reads the config. */
+/** Problems found; empty means healthy. More than one config file present replaces every check that reads the config. */
 export function runChecks(root: string, plugin: string | null = null, requireConfig = false): string[] {
   const problems: string[] = [];
   const version = plugin !== null ? pluginProblem(plugin, TRMV.yaml('cli.yaml').plugin, VERSION, install) : null;
   if (version !== null) problems.push(version);
   const executables = [...REQUIRED_EXECUTABLES];
-  const both = bothFilesProblem(root);
+  const both = filesProblem(root);
   if (both !== null) problems.push(both);
   else {
     const [found, needed] = configProblems(root, requireConfig);
     problems.push(...found);
     executables.push(...needed);
   }
+  problems.push(...trmvStrayFindings(root));
   problems.push(...executables.filter((exe) => !which(exe)).map((exe) => message('doctor.missing-executable', { exe })));
   return problems;
 }

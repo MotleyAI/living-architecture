@@ -152,3 +152,13 @@ def config_files() -> list[str]:
 def config_formats(file: str) -> list[str]:
     """Every released format of config file `file`, oldest first."""
     return list(TRMV.yaml("config.yaml")["formats"][file])
+
+
+def stealth_files() -> list[tuple[str, str]]:
+    """Each package's stealth config file, relative to the git common directory, in lookup order."""
+    return [(entry["package"], entry["path"]) for entry in TRMV.yaml("config.yaml")["stealth_files"]]
+
+
+def stealth_registry() -> list[str]:
+    """trmv's stealth path registry: repo-relative paths that must not show in a stealth repo."""
+    return list(TRMV.yaml("config.yaml")["stealth_registry"])

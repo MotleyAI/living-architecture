@@ -2,12 +2,29 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ConfigError, bothFilesProblem, checkFormat, repoLanguages } from 'type-rename-move/config';
+import {
+  ConfigError,
+  checkFormat,
+  configSource,
+  filesProblem,
+  repoLanguages,
+  strayFindings,
+  trmvStrayFindings,
+} from 'type-rename-move/config';
+import { stealthRegistry as trmvRegistry } from 'type-rename-move/contract';
 import * as twin from 'type-rename-move/twin';
-import { type LaConfig, languagesOf, loadConfig, loadRaw, resolveRaw } from '../config/index.js';
+import {
+  type LaConfig,
+  type RawConfig,
+  languagesOf,
+  loadRaw,
+  openspecStoreId,
+  privateStore,
+  resolveRaw,
+  tracksOpenspec,
+} from '../config/index.js';
 import {
   LA,
-  configFile,
   contractHash,
   identity,
   isOsError,
@@ -17,6 +34,8 @@ import {
   message,
   osErrorText,
   pluginProblem,
+  stealthPath,
+  stealthRegistry,
   which,
   whichPath,
 } from '../contract/index.js';
@@ -54,37 +73,90 @@ function probe(root: string, path: string): boolean | string {
 
 const isDir = (path: string): boolean => existsSync(path) && statSync(path).isDirectory();
 
-/** The config's gate decisions that the disk contradicts, in a fixed order. */
-function consistency(root: string, config: LaConfig, requirePlanStore: boolean): string[] {
-  const problems: string[] = [];
-  const hasOpenspec = isDir(join(root, 'openspec'));
-  if (config.openspec !== hasOpenspec) {
-    problems.push(message(config.openspec ? 'doctor.openspec-absent' : 'doctor.openspec-present'));
+/** Whether the OpenSpec CLI lists `storeId` among its registered stores. */
+function storeRegistered(storeId: string): boolean {
+  const proc = spawnSync('openspec', ['store', 'list', '--json'], { encoding: 'utf8' }); // NOSONAR(S4036) — runs the user's own openspec from PATH by design
+  if (proc.error !== undefined || proc.status !== 0) return false;
+  try {
+    const stores: unknown = JSON.parse(proc.stdout).stores;
+    return Array.isArray(stores) && stores.some((s) => s !== null && typeof s === 'object' && (s as { id?: unknown }).id === storeId);
+  } catch {
+    return false;
   }
+}
+
+function openspecProblem(root: string, config: LaConfig, raw: RawConfig): string | null {
+  const store = privateStore(root, config, raw);
+  if (store !== null) {
+    const id = openspecStoreId(store);
+    return isDir(join(store, stealthPath('openspec_store'))) && storeRegistered(id) ? null : message('doctor.private-store-missing', { id });
+  }
+  if (raw.source?.stealth && !config.openspec) return null;
+  const hasOpenspec = isDir(join(root, 'openspec'));
+  if (config.openspec !== hasOpenspec) return message(config.openspec ? 'doctor.openspec-absent' : 'doctor.openspec-present');
+  return null;
+}
+
+/** The config's gate decisions that the disk contradicts, in a fixed order. */
+function consistency(root: string, config: LaConfig, raw: RawConfig, requirePlanStore: boolean): string[] {
+  const problems: string[] = [];
+  const openspec = openspecProblem(root, config, raw);
+  if (openspec !== null) problems.push(openspec);
   const hasArchitecture = probe(root, join(root, 'architecture', 'index.yaml'));
   if (typeof hasArchitecture === 'string') problems.push(hasArchitecture);
   else if (config.architecture !== hasArchitecture) {
     problems.push(message(config.architecture ? 'doctor.architecture-absent' : 'doctor.architecture-present'));
   }
-  if (requirePlanStore && config.tracker === 'none' && !config.openspec) problems.push(message('doctor.no-plan-store'));
+  const stealth = raw.source?.stealth ?? false;
+  if (requirePlanStore && config.tracker === 'none' && !config.openspec && !stealth) problems.push(message('doctor.no-plan-store'));
   return problems;
 }
 
 function configProblems(root: string, requireConfig: boolean, requirePlanStore: boolean): string[] {
-  const hasCommitted = probe(root, join(root, configFile()));
-  if (typeof hasCommitted === 'string') return [hasCommitted];
   const hasLocal = probe(root, join(root, localConfigFile()));
   if (typeof hasLocal === 'string') return [hasLocal];
-  const missing = requireConfig && !hasCommitted ? [message('doctor.config-missing')] : [];
-  if (!hasCommitted && !hasLocal) return missing;
+  let raw: RawConfig;
+  try {
+    raw = loadRaw(root);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    const missing = requireConfig && configSource(root, 'la') === null ? [message('doctor.config-missing')] : [];
+    return [...missing, error.message];
+  }
+  const missing = requireConfig && raw.source === null ? [message('doctor.config-missing')] : [];
+  if (raw.source === null && !hasLocal) return missing;
   let config: LaConfig;
   try {
-    config = loadConfig(root);
+    config = resolveRaw(root, raw);
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return [...missing, error.message];
   }
-  return hasCommitted ? consistency(root, config, requirePlanStore) : missing;
+  return raw.source !== null ? consistency(root, config, raw, requirePlanStore) : missing;
+}
+
+/** In a stealth repo, la's and trmv's registry paths that show in the working tree. */
+function registryProblems(root: string): string[] {
+  const trmv = trmvStrayFindings(root);
+  if (!existsSync(join(root, '.git'))) return trmv;
+  let raw: RawConfig | null;
+  try {
+    raw = loadRaw(root);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    raw = null;
+  }
+  if (!raw?.source?.stealth) return trmv;
+  const [paths, prefix] = stealthRegistry();
+  const prefixes = tracksOpenspec(root) ? [] : [prefix];
+  let own: string[];
+  try {
+    own = strayFindings(root, paths.filter((p) => !trmvRegistry().includes(p)), prefixes);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    own = [error.message];
+  }
+  return [...own, ...trmv];
 }
 
 /** A quiet git run's status and stdout; status null when git cannot start or is killed. */
@@ -120,7 +192,7 @@ function languageExecutables(root: string): string[] {
   return repoLanguages(root, settings).flatMap((id) => language(id).executables as string[]);
 }
 
-/** Problems found; empty means healthy. Both config files present, or a format refusal, replace every check that reads the config. */
+/** Problems found; empty means healthy. More than one config file present, or a format refusal, replaces every check that reads the config. */
 export function runChecks(
   root: string,
   plugin: string | null = null,
@@ -131,8 +203,9 @@ export function runChecks(
   const problems = version !== null ? [version] : [];
   const trmv = trmvProblem();
   if (trmv !== null) problems.push(trmv);
-  const refusal = bothFilesProblem(root) ?? checkFormat(root, configFile());
+  const refusal = filesProblem(root) ?? checkFormat(root, 'la');
   problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)));
+  problems.push(...registryProblems(root));
   const local = localProblem(root);
   if (local !== null) problems.push(local);
   let executables: string[] = [...REQUIRED_EXECUTABLES];
@@ -162,7 +235,7 @@ export function run(
   const problems = runChecks(root, plugin, requireConfig, requirePlanStore);
   for (const problem of problems) process.stdout.write(`${message('doctor.fail', { problem })}\n`);
   if (problems.length === 0) {
-    let source = isFile(join(root, configFile())) ? configFile() : message('doctor.no-config-file');
+    let source = configSource(root, 'la') ?? message('doctor.no-config-file');
     if (isFile(join(root, localConfigFile()))) source = message('doctor.local-source', { source, local: localConfigFile() });
     process.stdout.write(`${message('doctor.ok', { package: pluginName(), version: VERSION, source })}\n`);
   }

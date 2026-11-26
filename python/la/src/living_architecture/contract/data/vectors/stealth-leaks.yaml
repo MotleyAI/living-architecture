@@ -1,0 +1,6 @@
+# The leak tokens of stealth mode: text that shows la or trmv was used. Core tokens can never be allowed; every command
+# name of both packages' cli.yaml and every path of both stealth path registries are core tokens too. Waivable tokens
+# may be listed in the stealth config's leaks.allow. A token matches case-insensitively where no word character
+# touches it on either side; OpenSpec is dropped when the repo tracks a path under openspec/ at HEAD.
+core: [living-architecture, type-rename-move, trmv, '/la:', '/trmv:', ALLOW(]
+waivable: [arc42, LikeC4, OpenSpec, reset point, decisions log, pr-plan, pr-tests, pr-implement, pr-review]

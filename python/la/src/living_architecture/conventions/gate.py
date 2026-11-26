@@ -11,11 +11,13 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from living_architecture.config import load_config
-from living_architecture.contract import conventions, message
+from living_architecture.config import load_raw, resolve_raw
+from living_architecture.contract import conventions, message, stealth_path
 from living_architecture.conventions.facts import FactsError, collect, language_of
+from living_architecture.conventions.ledger import LedgerEntry, load_ledger
+from living_architecture.conventions.ledger import waived as ledger_waived
 from trmv import changes, lang
-from trmv.config import ConfigError
+from trmv.config import ConfigError, stealth_dir
 from trmv.contract import is_test_file, language_ids
 from trmv.contract import language as registry
 
@@ -89,8 +91,24 @@ def _applies(rule: str, *, test_file: bool) -> bool:
     return test_file or not conventions()["rules"][rule]["tests_only"]
 
 
-def _violations(entry: dict[str, Any], rules: list[str]) -> list[Violation]:
+class Waivers(BaseModel):
+    """Where waivers come from: inline comments, or in stealth mode the ledger at `ledger` and its entries."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ledger: Path | None = None
+    entries: list[LedgerEntry] = []
+
+
+def _waived(waivers: Waivers, *, path: str, rule: str, text: str, language: str) -> bool:
+    if waivers.ledger is not None:
+        return ledger_waived(waivers.entries, path=path, rule=rule, line=text)
+    return waived(text=text, rule=rule, language=language)
+
+
+def _violations(entry: dict[str, Any], rules: list[str], waivers: Waivers | None = None) -> list[Violation]:
     """The entry's findings for the configured `rules`; a file error only when one of them applies to the file."""
+    waivers = waivers or Waivers()
     rel = entry["path"]
     test_file = is_test_file(rel)
     if entry["status"] in _FAILURES:
@@ -105,7 +123,7 @@ def _violations(entry: dict[str, Any], rules: list[str]) -> list[Violation]:
         for d in entry["detections"]
         if d["rule"] in rules
         and _applies(d["rule"], test_file=test_file)
-        and not waived(text=d["text"], rule=d["rule"], language=lang_id)
+        and not _waived(waivers, path=rel, rule=d["rule"], text=d["text"], language=lang_id)
     ]
 
 
@@ -163,13 +181,16 @@ def _select(rels: list[str], *, explicit: bool, excludes: list[str]) -> list[str
     return [r for r in known if not _is_excluded(r, patterns=excludes)]
 
 
-def report(rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float, rules: list[str]) -> int:
+def report(
+    rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float, rules: list[str], waivers: Waivers | None = None
+) -> int:
     """Violations of the configured `rules` in path order, the ratio groups, the summary and the verdict."""
+    waivers = waivers or Waivers()
     violations: list[Violation] = []
     groups: dict[str, list[FileCounts]] = {"source": [], "tests": []}
     for rel in rels:
         entry = facts[rel]
-        violations.extend(_violations(entry, rules))
+        violations.extend(_violations(entry, rules, waivers))
         if entry["status"] == "ok":
             counts = FileCounts(rel=rel, text=entry["text_lines"], total=entry["total_lines"])
             groups["tests" if is_test_file(rel) else "source"].append(counts)
@@ -181,9 +202,20 @@ def report(rels: list[str], facts: dict[str, dict[str, Any]], *, cap_pct: float,
     label = files_label(languages)
     print(message("conventions.summary", count=len(violations), files=len(rels), label=label), file=sys.stderr)
     status = 1 if violations or ratio_red else 0
-    verdict = message("conventions.clear", label=label) if status == 0 else message("conventions.red", waivers=_waiver_examples(languages))
+    examples = (_waiver_examples(languages) if waivers.ledger is None
+                else message("conventions.waiver-ledger", path=str(waivers.ledger)))
+    verdict = message("conventions.clear", label=label) if status == 0 else message("conventions.red", waivers=examples)
     print(verdict)
     return status
+
+
+def _stealth_waivers(repo_root: Path) -> Waivers:
+    """The stealth waiver ledger and its entries; ConfigError when it is not a valid ledger."""
+    directory = stealth_dir(repo_root, "la")
+    if directory is None:
+        return Waivers()
+    ledger = directory / stealth_path("waiver_ledger")
+    return Waivers(ledger=ledger, entries=load_ledger(ledger))
 
 
 def check_conventions(
@@ -198,7 +230,9 @@ def check_conventions(
 ) -> int:
     """The gate end to end: resolve the changed files, collect their facts, print the report and verdict."""
     try:
-        config = load_config(repo_root)
+        raw = load_raw(repo_root)
+        config = resolve_raw(repo_root, raw)
+        waivers = _stealth_waivers(repo_root) if raw.source is not None and raw.source.stealth else Waivers()
         if files:
             rels = files
         else:
@@ -216,4 +250,4 @@ def check_conventions(
             print(message("conventions.error", error=str(exc)), file=sys.stderr)
         return 2
     cap = cap_pct if cap_pct is not None else config.conventions.text_ratio_max * 100
-    return report(rels, facts, cap_pct=cap, rules=config.conventions.rules)
+    return report(rels, facts, cap_pct=cap, rules=config.conventions.rules, waivers=waivers)

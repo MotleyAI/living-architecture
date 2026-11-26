@@ -59,6 +59,23 @@ def local_config_file() -> str:
     return LA.yaml("config.yaml")["local_file"]
 
 
+def stealth_path(key: str) -> str:
+    """A stealth-mode path in la's stealth directory: `plans_dir`, `waiver_ledger` or `openspec_store`."""
+    return LA.yaml("config.yaml")[key]
+
+
+def stealth_registry() -> tuple[list[str], str]:
+    """la's stealth path registry, and the prefix whose paths count when the repo tracks none under it."""
+    config = LA.yaml("config.yaml")
+    return list(config["stealth_registry"]), config["stealth_registry_prefix"]
+
+
+def leak_token_groups() -> tuple[list[str], list[str]]:
+    """The core and the waivable leak tokens of the list."""
+    tokens = LA.yaml("vectors/stealth-leaks.yaml")
+    return list(tokens["core"]), list(tokens["waivable"])
+
+
 def script_path(name: str) -> Path:
     return LA.script_path(name)
 

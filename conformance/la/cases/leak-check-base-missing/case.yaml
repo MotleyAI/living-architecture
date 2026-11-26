@@ -1,0 +1,21 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- nope
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+expect:
+  exit: 2
+note: a base ref that does not resolve is the shared git error, nothing on stdout
+golden: manual

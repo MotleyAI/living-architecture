@@ -66,6 +66,23 @@ export function localConfigFile(): string {
   return LA.yaml('config.yaml').local_file;
 }
 
+/** A stealth-mode path in la's stealth directory: `plans_dir`, `waiver_ledger` or `openspec_store`. */
+export function stealthPath(key: string): string {
+  return LA.yaml('config.yaml')[key];
+}
+
+/** la's stealth path registry, and the prefix whose paths count when the repo tracks none under it. */
+export function stealthRegistry(): [string[], string] {
+  const config = LA.yaml('config.yaml');
+  return [[...config.stealth_registry], config.stealth_registry_prefix];
+}
+
+/** The core and the waivable leak tokens of the list. */
+export function leakTokenGroups(): [string[], string[]] {
+  const tokens = LA.yaml('vectors/stealth-leaks.yaml');
+  return [[...tokens.core], [...tokens.waivable]];
+}
+
 export function scriptPath(name: string): string {
   return LA.scriptPath(name);
 }

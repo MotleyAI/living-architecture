@@ -36,6 +36,7 @@ flowchart TD
     la__review["Review shims"]
     la__doctor["Doctor"]
     la__affected["Affected tests"]
+    la__leaks["Leak check"]
   end
   la --> trmv
   trmv__changes --> trmv__config
@@ -74,15 +75,18 @@ flowchart TD
   la__cli --> la__contract
   la__cli --> la__conventions
   la__cli --> la__doctor
+  la__cli --> la__leaks
   la__cli --> la__review
   la__config --> la__contract
   la__conventions --> la__config
   la__conventions --> la__contract
   la__doctor --> la__config
   la__doctor --> la__contract
+  la__leaks --> la__config
+  la__leaks --> la__contract
   la__review --> la__contract
   classDef leaf fill:none;
-  class trmv__contract,trmv__config,trmv__lang,trmv__twin,trmv__changes,trmv__typecheck,trmv__refactor,trmv__doctor,trmv__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected leaf;
+  class trmv__contract,trmv__config,trmv__lang,trmv__twin,trmv__changes,trmv__typecheck,trmv__refactor,trmv__doctor,trmv__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected,la__leaks leaf;
 ```
 <!-- /likec4:system -->
 
@@ -111,6 +115,7 @@ flowchart TD
     la__review["Review shims"]
     la__doctor["Doctor"]
     la__affected["Affected tests"]
+    la__leaks["Leak check"]
   end
   la --> trmv
   trmv__changes --> trmv__config
@@ -149,15 +154,18 @@ flowchart TD
   la__cli --> la__contract
   la__cli --> la__conventions
   la__cli --> la__doctor
+  la__cli --> la__leaks
   la__cli --> la__review
   la__config --> la__contract
   la__conventions --> la__config
   la__conventions --> la__contract
   la__doctor --> la__config
   la__doctor --> la__contract
+  la__leaks --> la__config
+  la__leaks --> la__contract
   la__review --> la__contract
   classDef leaf fill:none;
-  class trmv__contract,trmv__config,trmv__lang,trmv__twin,trmv__changes,trmv__typecheck,trmv__refactor,trmv__doctor,trmv__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected leaf;
+  class trmv__contract,trmv__config,trmv__lang,trmv__twin,trmv__changes,trmv__typecheck,trmv__refactor,trmv__doctor,trmv__cli,la__contract,la__config,la__cli,la__c4,la__archcheck,la__conventions,la__review,la__doctor,la__affected,la__leaks leaf;
 ```
 <!-- /likec4:npm -->
 

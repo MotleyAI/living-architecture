@@ -8,11 +8,12 @@ from pathlib import Path
 from trmv import NATIVE_LANGUAGE, __version__, twin
 from trmv.config import (
     ConfigError,
-    both_files_problem,
     check_format,
     config_source,
+    files_problem,
     load_with_languages,
     repo_languages,
+    trmv_stray_findings,
 )
 from trmv.contract import TRMV, contract_hash, language, message, plugin_problem
 
@@ -48,13 +49,14 @@ def run_checks(*, root: Path, plugin: str | None = None, require_config: bool = 
     if plugin is not None and (version := plugin_problem(plugin, TRMV.yaml("cli.yaml")["plugin"], __version__, _install)):
         problems.append(version)
     executables = list(REQUIRED_EXECUTABLES)
-    both = both_files_problem(root)
+    both = files_problem(root)
     if both is not None:
         problems.append(both)
     else:
         config_problems, needed = _config_problems(root, require_config=require_config)
         problems += config_problems
         executables += needed
+    problems += trmv_stray_findings(root)
     problems += [message("doctor.missing-executable", exe=exe) for exe in executables if shutil.which(exe) is None]
     return problems
 

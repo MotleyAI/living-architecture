@@ -40,11 +40,11 @@ function uniqueSorted(paths: Buffer[]): Buffer[] {
   return [...seen.values()].sort(Buffer.compare);
 }
 
-/** `git fetch origin <base>` in its own process group, the whole group killed after `timeout` seconds. */
-function boundedFetch(base: string, repoRoot: string, timeout: number): void {
+/** `git fetch <remote> <branch>` in its own process group, the whole group killed after `timeout` seconds. */
+function boundedFetch(remote: string, branch: string, repoRoot: string, timeout: number): void {
   const env = { ...process.env, ...NO_PROMPT };
   const options = { cwd: repoRoot, stdio: 'ignore' as const, env, detached: true, timeout: timeout * 1000, killSignal: 'SIGKILL' as const };
-  const proc = spawnSync('git', ['fetch', 'origin', base, '--quiet'], options); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  const proc = spawnSync('git', ['fetch', remote, branch, '--quiet'], options); // NOSONAR(S4036) — runs the user's own git from PATH by design
   if ((proc.error as NodeJS.ErrnoException | undefined)?.code !== 'ETIMEDOUT' || proc.pid === undefined) return;
   try {
     process.kill(-proc.pid, 'SIGKILL');
@@ -53,12 +53,36 @@ function boundedFetch(base: string, repoRoot: string, timeout: number): void {
   }
 }
 
-/** `origin/<base>` after a best-effort, bounded, non-prompting fetch; ConfigError when it does not resolve. */
+/** The configured git remotes; none when git cannot list them. */
+function remotes(repoRoot: string): string[] {
+  const proc = spawnSync('git', ['remote'], { cwd: repoRoot }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  return proc.status === 0 ? proc.stdout.toString('utf8').split(/\s+/).filter((r) => r) : [];
+}
+
+/**
+ * The base ref `base` names, after a best-effort, bounded, non-prompting fetch: `refs/remotes/<remote>/<rest>` when
+ * `base` is `<remote>/<rest>` of a configured remote, else `origin/<base>`; ConfigError when it does not resolve.
+ */
 export function resolveBaseRef(base: string, repoRoot: string, fetchTimeout: number = baseFetchTimeout()): string {
-  boundedFetch(base, repoRoot, fetchTimeout);
-  const ref = `origin/${base}`;
+  const slash = base.indexOf('/');
+  const [remote, rest] = slash === -1 ? [base, ''] : [base.slice(0, slash), base.slice(slash + 1)];
+  let ref: string;
+  if (rest && remotes(repoRoot).includes(remote)) {
+    boundedFetch(remote, rest, repoRoot, fetchTimeout);
+    ref = `refs/remotes/${remote}/${rest}`;
+  } else {
+    boundedFetch('origin', base, repoRoot, fetchTimeout);
+    ref = `origin/${base}`;
+  }
   git(['rev-parse', '--verify', '--quiet', ref], repoRoot);
   return ref;
+}
+
+/** The ref `refs/remotes/origin/HEAD` points to, null without it. */
+export function defaultBaseRef(repoRoot: string): string | null {
+  const proc = spawnSync('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], { cwd: repoRoot }); // NOSONAR(S4036) — runs the user's own git from PATH by design
+  const ref = proc.stdout?.toString('utf8').trim() ?? '';
+  return proc.status === 0 && ref ? ref : null;
 }
 
 /** Changed paths as raw bytes in byte order: the merge-base diff, working-tree edits and optionally deletions and untracked files. */
@@ -96,6 +120,11 @@ export function pathsAt(ref: string, repoRoot: string): Set<string> {
 export function fileAt(ref: string, path: string, repoRoot: string): Buffer | null {
   const proc = spawnSync('git', ['cat-file', 'blob', `${ref}:${path}`], { cwd: repoRoot, maxBuffer: 1 << 30 }); // NOSONAR(S4036) — runs the user's own git from PATH by design
   return proc.status === 0 ? proc.stdout : null;
+}
+
+/** Whether HEAD tracks repo-relative `path`. */
+export function trackedAtHead(path: string, repoRoot: string): boolean {
+  return fileAt('HEAD', path, repoRoot) !== null;
 }
 
 /** Whether `ref` names a commit; ConfigError when git fails. */

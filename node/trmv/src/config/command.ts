@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { manifest, message } from '../contract/index.js';
 import { type Args, HelpRequested, UsageError, parse } from '../contract/parser.js';
 import * as twin from '../twin/index.js';
-import { bothFilesProblem } from './files.js';
+import { filesProblem } from './files.js';
 import { checkFormat } from './format.js';
 import { findRepoRoot } from './index.js';
 
@@ -34,18 +34,18 @@ function forwarded(command: string, lang: string, argv: string[], who: twin.Iden
   }
 }
 
-/** How a package runs its commands: its manifest, the config file whose format it checks (default: the one trmv
- * reads), its twin identity, and the runner of commands the manifest backs with a bundled script. */
+/** How a package runs its commands: its manifest, the package whose config file's format it checks (default: trmv),
+ * its twin identity, and the runner of commands the manifest backs with a bundled script. */
 export interface CommandSet {
   commands?: Record<string, any>;
-  configFile?: string;
+  pkg?: string;
   who?: twin.Identity;
   shim?: (command: string, argv: string[]) => number;
 }
 
 /**
- * The exit code of `command` run with `argv`: forwarded to its native twin, or parsed, refused when both config files
- * are present or the format is wrong (unless exempt), and dispatched to its handler.
+ * The exit code of `command` run with `argv`: forwarded to its native twin, or parsed, refused when more than one config
+ * file is present or the format is wrong (unless exempt), and dispatched to its handler.
  */
 export function runCommand(command: string, argv: string[], handlers: Record<string, Handler>, set: CommandSet = {}): number {
   const spec = (set.commands ?? manifest())[command];
@@ -66,7 +66,7 @@ export function runCommand(command: string, argv: string[], handlers: Record<str
   }
   if (spec.format !== 'exempt') {
     const root = checkedRoot(args);
-    const problem = bothFilesProblem(root) ?? checkFormat(root, set.configFile ?? null);
+    const problem = filesProblem(root) ?? checkFormat(root, set.pkg ?? 'trmv');
     if (problem !== null) {
       process.stderr.write(`${problem}\n`);
       return 2;

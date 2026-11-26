@@ -51,6 +51,7 @@
     "la-doctor": "dist/bin/la-doctor.js",
     "la-fetch-coderabbit-threads": "dist/bin/la-fetch-coderabbit-threads.js",
     "la-fetch-failed-pr-checks": "dist/bin/la-fetch-failed-pr-checks.js",
+    "la-leak-check": "dist/bin/la-leak-check.js",
     "la-pr-reviewers": "dist/bin/la-pr-reviewers.js",
     "la-reply-invalid-coderabbit": "dist/bin/la-reply-invalid-coderabbit.js",
     "la-reply-to-pr-thread": "dist/bin/la-reply-to-pr-thread.js",

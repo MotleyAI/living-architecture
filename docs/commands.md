@@ -7,8 +7,8 @@ which depends on it.
 | Command | Purpose |
 |---|---|
 | `trmv-doctor [--plugin DIR] [--require-config]` | Check the installed trmv tools' major.minor series matches the `trmv` plugin, the config trmv reads, `git`, and each repo language's executables (`node`/`npx` for TypeScript) |
-| `trmv-config get <key>` / `trmv-config show` | Print trmv's resolved config; `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
-| `trmv-typecheck [--write-baseline \| --realign-from REF]` | Type-check each applicable language against a baseline that only shrinks |
+| `trmv-config get <key>` / `trmv-config show` | Print trmv's resolved config; `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact, `get stealth` whether a stealth config is read |
+| `trmv-typecheck [--write-baseline \| --realign-from REF] [--base BRANCH]` | Type-check each applicable language against a baseline that only shrinks; in stealth mode, against the merge base with `BRANCH` |
 | `trmv-refactor`, `trmv-compliance`, `trmv-mock-lint` | See [Renames and moves](rename-and-move.md) |
 | `la-doctor [--plugin DIR] [--require-config] [--require-plan-store]` | Everything `trmv-doctor` checks, against the `la` plugin, plus the trmv installation la needs (a `trmv-doctor` on `PATH` at la's version and contract) and `gh` |
 | `la-config get <key>` / `la-config show` | Print the resolved repo config (`living-architecture.local.yaml` merged over it); `get languages` prints the repo languages, `get lang.<language>.<key>` a language fact |
@@ -20,6 +20,7 @@ which depends on it.
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
 | `la-typecheck` | Deprecated alias of `trmv-typecheck` until 0.15.0: same output and exit, plus one deprecation line on stderr |
 | `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
+| `la-leak-check --base BRANCH` / `--text -` | In [stealth mode](configuration.md#stealth-mode), print the tokens that show la or trmv was used in a branch or in stdin |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
 | `la-wait-for-reviews <PR>` | Watch CI, Sonar and, when it is on the PR, CodeRabbit until they settle, printing each new failed check, CodeRabbit comment and finished Sonar analysis once |
 | `la-fetch-failed-pr-checks <PR> [--check NAME]` | Failed checks plus a log excerpt of each; `--check` keeps the one with that Details URL or name |
@@ -78,7 +79,7 @@ Suppress a genuine false positive with `// @ts-expect-error — <reason>`, never
 
 ## Affected tests
 
-`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH` (after a best-effort fetch, killed after
+`la-affected-tests --base BRANCH` compares the working tree with `origin/BRANCH`, or `REMOTE/BRANCH` of a configured remote (after a best-effort fetch, killed after
 `base_fetch_timeout_seconds` in `shared/trmv/cli.yaml` and never prompting for credentials) and
 prints, one repo-relative path per line in code-point order, the test files the change can affect: the tests it
 added or changed (committed, staged, unstaged or untracked) and every test whose imports, type-only ones included,

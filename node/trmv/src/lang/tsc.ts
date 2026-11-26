@@ -89,12 +89,35 @@ export interface TscRun {
   command: string;
   baseline: string;
   write: boolean;
+  /** In stealth mode, the merge base's counts, used in place of the baseline file, which is never written. */
+  base?: Counts;
+}
+
+const countsOf = (diagnostics: TscDiagnostic[]): Counts => {
+  const counts: Counts = new Map();
+  for (const d of diagnostics) counts.set(keyOf(d.file, d.code, d.message), (counts.get(keyOf(d.file, d.code, d.message)) ?? 0) + 1);
+  return counts;
+};
+
+const spawnTsc = (cwd: string, argv: string[]) => {
+  const [cmd = '', ...args] = argv;
+  return spawnSync(cmd, [...args, '--pretty', 'false'], { cwd, maxBuffer: 1 << 30 });
+};
+
+/** tsc's diagnostics run at `root` as counts, null when it fails without a parsable diagnostic. */
+export function tscCounts(root: string, argv: string[]): Counts | null {
+  const proc = spawnTsc(root, argv);
+  if (proc.error !== undefined) return null;
+  const parsed = [parseTscOutput(proc.stdout?.toString('utf8') ?? ''), parseTscOutput(proc.stderr?.toString('utf8') ?? '')];
+  const diagnostics = parsed.flatMap((p) => p.diagnostics).map((d) => ({ ...d, file: posixRel(root, d.file) }));
+  if (parsed.some((p) => p.globals.length > 0) || (proc.status !== 0 && diagnostics.length === 0)) return null;
+  return countsOf(diagnostics);
 }
 
 /** Run tsc and ratchet its diagnostics against the baseline; the la-typecheck exit code. */
-export function checkTypescript({ repoRoot, argv, command, baseline, write }: TscRun): number {
-  const [cmd = '', ...args] = argv;
-  const proc = spawnSync(cmd, [...args, '--pretty', 'false'], { cwd: repoRoot, maxBuffer: 1 << 30 });
+export function checkTypescript({ repoRoot, argv, command, baseline, write, base: given }: TscRun): number {
+  const [cmd = ''] = argv;
+  const proc = spawnTsc(repoRoot, argv);
   if (proc.error !== undefined) {
     process.stderr.write(`${message('typecheck.error', { error: osErrorText(proc.error, repoRoot, cmd) })}\n`);
     return 2;
@@ -113,15 +136,14 @@ export function checkTypescript({ repoRoot, argv, command, baseline, write }: Ts
   if (proc.status !== 0 && diagnostics.length === 0) {
     return fail(message('typecheck.checker-failed', { language: 'typescript', command, code: proc.status ?? proc.signal ?? '' }));
   }
-  const now: Counts = new Map();
-  for (const d of diagnostics) now.set(keyOf(d.file, d.code, d.message), (now.get(keyOf(d.file, d.code, d.message)) ?? 0) + 1);
+  const now = countsOf(diagnostics);
   const path = join(repoRoot, baseline);
   if (write) {
     writeFileSync(path, render(now));
     process.stderr.write(`${message('typecheck.write', { language: 'typescript', baseline })}\n`);
     return 0;
   }
-  const base = load(path);
+  const base = given ?? load(path);
   if (base === null) return fail(message('typecheck.baseline-invalid', { language: 'typescript', baseline }));
   let added = 0;
   for (const [key, count] of now) added += Math.max(0, count - (base.get(key) ?? 0));
@@ -138,7 +160,7 @@ export function checkTypescript({ repoRoot, argv, command, baseline, write }: Ts
   }
   let fixed = 0;
   for (const [key, count] of base) fixed += count - (now.get(key) ?? 0);
-  if (fixed > 0) {
+  if (fixed > 0 && given === undefined) {
     writeFileSync(path, render(now));
     process.stderr.write(`${message('typecheck.shrink', { language: 'typescript', count: fixed, baseline })}\n`);
   }

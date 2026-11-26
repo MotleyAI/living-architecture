@@ -15,6 +15,12 @@ values.
 **Fast path.** When another skill's preflight reports the missing config, run steps 1–4 only, then hand back to that
 skill. A full run (the user invoked `/trmv:init`) continues to step 5.
 
+**Stealth setup.** When the repo has no config, ask once (with PROS, CONS and a RECOMMENDATION) whether to set it up
+in stealth mode: for a repo the user does not own, where nothing committed or pushed may show the tools were used. In
+stealth mode step 3 writes `<C>/trmv/trmv.yaml` (`<C>` = `git rev-parse --path-format=absolute --git-common-dir`),
+never a file at the repo root, and step 5 offers no baseline: `trmv-typecheck` compares with the merge base. Nothing
+is committed. Details: `docs/configuration.md`, "Stealth mode".
+
 ## 1. Detect
 
 Read, don't ask. For each key note the value and where it came from:

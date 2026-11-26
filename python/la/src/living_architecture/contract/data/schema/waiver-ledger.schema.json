@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "waiver-ledger.schema.json",
+  "title": "waivers.yaml",
+  "description": "The stealth waiver ledger in la's stealth directory: each entry waives the violations of a waivable rule on lines of one file with the given text, trimmed.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "path",
+      "rule",
+      "line",
+      "reason"
+    ],
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "The file's repo-relative POSIX path."
+      },
+      "rule": {
+        "type": "string",
+        "description": "A waivable conventions rule."
+      },
+      "line": {
+        "type": "string",
+        "description": "The flagged line's text, without leading or trailing whitespace."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Why the line keeps the violation."
+      }
+    }
+  }
+}

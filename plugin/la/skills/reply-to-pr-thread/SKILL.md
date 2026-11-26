@@ -7,6 +7,12 @@ description: Use when the user asks to reply / comment on a CodeRabbit (or any) 
 
 # Reply to a GitHub PR review thread
 
+**Stealth mode** (`la-config get stealth` prints `true`): replies and NOSONAR reasons never mention la, trmv, OpenSpec,
+specs, stage names or any `la-*`/`trmv-*` command. Post only through `la-reply-to-pr-thread` or
+`la-reply-invalid-coderabbit`, which refuse a leaking body; on a refusal, reword and post again. Never post through
+raw `gh` or an MCP tool. A conventions waiver goes in the waiver ledger the RED verdict names, never in an inline
+comment.
+
 Wraps the GitHub `POST /repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies` endpoint. Works for any review thread on any PR, but the canonical use case is replying to CodeRabbit threads — never resolve them, always reply with rationale.
 
 ## How to run

@@ -14,6 +14,14 @@ repo; `la-config show` prints the resolved values.
 **Fast path.** When another skill's preflight reports the missing config, run steps 1–6 only, then hand back
 to that skill. A full run (the user invoked `/la:init`) continues to step 7.
 
+**Stealth setup.** When the repo has no config, ask once (with PROS, CONS and a RECOMMENDATION) whether to set it up
+in stealth mode: for a repo the user does not own, where nothing committed, pushed or posted may show the tools were
+used. In stealth mode the config is `<C>/living-architecture/living-architecture.yaml` (`<C>` =
+`git rev-parse --path-format=absolute --git-common-dir`), never a file at the repo root, and `architecture` is
+`false`. Step 4 sets up the private OpenSpec store when the repo tracks no `openspec/`. Step 5 writes the stealth file
+and offers no `.gitignore` edit. Step 7 offers neither a type-check baseline (`trmv-typecheck` compares with the merge
+base) nor `la:arch-init`. Nothing is committed. Details: `docs/configuration.md`, "Stealth mode".
+
 ## 1. Detect
 
 Read, don't ask. For each key note the value and where it came from:

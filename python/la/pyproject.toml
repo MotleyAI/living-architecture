@@ -68,6 +68,7 @@ la-check-conventions = "living_architecture.cli.la_check_conventions:la_check_co
 la-count-comments = "living_architecture.cli.la_count_comments:la_count_comments"
 la-typecheck = "living_architecture.cli.la_typecheck:la_typecheck"
 la-affected-tests = "living_architecture.cli.la_affected_tests:la_affected_tests"
+la-leak-check = "living_architecture.cli.la_leak_check:la_leak_check"
 la-fetch-coderabbit-threads = "living_architecture.cli.la_fetch_coderabbit_threads:la_fetch_coderabbit_threads"
 la-reply-invalid-coderabbit = "living_architecture.cli.la_reply_invalid_coderabbit:la_reply_invalid_coderabbit"
 la-reply-to-pr-thread = "living_architecture.cli.la_reply_to_pr_thread:la_reply_to_pr_thread"

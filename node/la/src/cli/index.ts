@@ -12,6 +12,7 @@ import { laView, runCommand } from '../config/index.js';
 import { HelpRequested, UsageError, identity, manifest, message, parse } from '../contract/index.js';
 import * as conventions from '../conventions/index.js';
 import * as doctor from '../doctor/index.js';
+import * as leaks from '../leaks/index.js';
 import * as review from '../review/index.js';
 
 const HANDLERS: Record<string, Handler> = {
@@ -53,6 +54,7 @@ const HANDLERS: Record<string, Handler> = {
     });
   },
   'la-count-comments': (args) => conventions.countComments(args.argv as string[]),
+  'la-leak-check': (args) => leaks.run(commandRoot(null), optional(args.base)),
   'la-affected-tests': (args) => {
     const language = optional(args.language);
     return language !== null ? affected.serve(process.cwd(), language) : affected.run(process.cwd(), String(args.base));

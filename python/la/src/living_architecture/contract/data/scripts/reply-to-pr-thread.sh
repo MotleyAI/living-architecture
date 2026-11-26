@@ -77,6 +77,28 @@ fi
 [ -n "$COMMENT_ID" ] || { echo "error: --comment-id (or a discussion URL) is required" >&2; usage; }
 [ -n "$PR" ]         || { echo "error: --pr (or a discussion URL) is required" >&2; usage; }
 
+if [ -t 0 ]; then
+    echo "error: comment body must be provided on stdin (pipe text in or use a heredoc)" >&2
+    exit 2
+fi
+
+# Use mktemp so a co-resident process can't pre-create or symlink the
+# target before we write — predictable PID-based names are vulnerable to
+# clobbering on shared hosts.
+BODY_FILE="$(mktemp "${TMPDIR:-/tmp}/pr-reply-body-XXXXXX.md")"
+PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/pr-reply-payload-XXXXXX.json")"
+trap 'rm -f "$BODY_FILE" "$PAYLOAD_FILE"' EXIT
+
+cat > "$BODY_FILE"
+[ -s "$BODY_FILE" ] || { echo "error: stdin was empty" >&2; exit 2; }
+
+# In stealth mode, refuse a body that shows la or trmv was used, before any network call.
+if [ "$(la-config get stealth 2>/dev/null || true)" = true ]; then
+    status=0
+    la-leak-check --text - < "$BODY_FILE" >&2 || status=$?
+    [ "$status" -eq 0 ] || exit "$status"
+fi
+
 if [ -z "$REPO" ]; then
     REPO="$(gh repo view --json owner,name -q '.owner.login + "/" + .name' 2>/dev/null || true)"
     [ -n "$REPO" ] || { echo "error: --repo not given and could not auto-detect (cwd is not a gh-recognised repo)" >&2; exit 2; }
@@ -93,21 +115,6 @@ esac
 
 command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 127; }
 command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 127; }
-
-if [ -t 0 ]; then
-    echo "error: comment body must be provided on stdin (pipe text in or use a heredoc)" >&2
-    exit 2
-fi
-
-# Use mktemp so a co-resident process can't pre-create or symlink the
-# target before we write — predictable PID-based names are vulnerable to
-# clobbering on shared hosts.
-BODY_FILE="$(mktemp "${TMPDIR:-/tmp}/pr-reply-body-XXXXXX.md")"
-PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/pr-reply-payload-XXXXXX.json")"
-trap 'rm -f "$BODY_FILE" "$PAYLOAD_FILE"' EXIT
-
-cat > "$BODY_FILE"
-[ -s "$BODY_FILE" ] || { echo "error: stdin was empty" >&2; exit 2; }
 
 # Build the JSON payload via jq so newlines / special chars are escaped properly.
 jq -nR --rawfile body "$BODY_FILE" '{body: $body}' > "$PAYLOAD_FILE"

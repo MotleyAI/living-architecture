@@ -1,0 +1,1 @@
+FAIL: .tsc-baseline.json is staged in this stealth repo; unstage it with git rm --cached .tsc-baseline.json

@@ -32,6 +32,8 @@ findings:
 
   # ---- the config files
   config.both-files: '{first} and {second} are both at the repo root; keep one: a repo using la keeps {second}'
+  config.multiple-files: 'more than one config file applies ({files}); keep one'
+  config.stealth-architecture: '{path}: architecture: true is refused in a stealth config, since the model would show in the repo'
 
   # ---- la-config and trmv-config
   config.error: '{prog}: {error}'
@@ -42,6 +44,8 @@ findings:
   config.waiver: '{prefix} ALLOW(<rule>): <reason>'
   # `la-config show`, on stderr: one per key the local file sets.
   config.local-override: '{prog}: {key} from {file}'
+  # `show`, on stderr: the stealth config file read.
+  config.stealth-note: '{prog}: stealth config {path}'
 
   # ---- twin forwarding
   twin.error: '{prog}: {error}'
@@ -75,6 +79,10 @@ findings:
   typecheck.baseline-invalid: 'trmv-typecheck: {language}: {baseline} is malformed'
   typecheck.patch-not-applied: 'trmv-typecheck: python: {command} loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS'
   typecheck.patch-unverified: 'trmv-typecheck: python: the pyright#11919 patch is verified for basedpyright {verified}, but {version} is installed; pin a verified version'
+  typecheck.stealth-write-refused: 'trmv-typecheck: --write-baseline is refused in stealth mode: a baseline file would show in the repo'
+  typecheck.stealth-realign-refused: 'trmv-typecheck: --realign-from is refused in stealth mode: the repo tracks no python baseline'
+  typecheck.stealth-no-base: 'trmv-typecheck: no base to compare with in stealth mode; pass --base <branch>'
+  typecheck.merge-base-failed: 'trmv-typecheck: {language}: {command} failed at the merge base {commit}'
   typecheck.patch-mismatch: 'trmv-typecheck: python: basedpyright {version} has the pyright#11919 line {count} times, not once; reinstall basedpyright'
 
   # ---- trmv-refactor
@@ -209,4 +217,6 @@ findings:
   doctor.plugin-not-found: no .claude-plugin/plugin.json at or above {dir}
   doctor.plugin-invalid: '{path} is not valid JSON with a "version" of the form <major>.<minor>.<rest>'
   doctor.plugin-unreadable: cannot inspect {path}
+  doctor.stealth-untracked: '{path} is untracked and not ignored in this stealth repo; delete it or list it in .git/info/exclude'
+  doctor.stealth-staged: '{path} is staged in this stealth repo; unstage it with git rm --cached {path}'
   doctor.trmv-config-missing: no trmv.yaml or living-architecture.yaml at the repo root; run /trmv:init to onboard this repo

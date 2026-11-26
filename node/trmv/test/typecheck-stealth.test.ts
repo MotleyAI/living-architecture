@@ -75,12 +75,11 @@ describe('withMergeBaseCheckout', () => {
   it('removes and prunes the checkout when the callback throws', () => {
     const { root, commit } = committedRepo();
     let seen = '';
-    expect(() =>
-      withMergeBaseCheckout(root, commit, [], (checkout: string) => {
-        seen = checkout;
-        throw new Error('boom');
-      }),
-    ).toThrow('boom');
+    const fail = (checkout: string): never => {
+      seen = checkout;
+      throw new Error('boom');
+    };
+    expect(() => withMergeBaseCheckout(root, commit, [], fail)).toThrow('boom');
     expect(existsSync(seen)).toBe(false);
     expect(worktrees(root)).not.toContain(seen);
   });

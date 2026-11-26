@@ -10,6 +10,7 @@ import {
 } from '../contract/index.js';
 import { ConfigError } from './error.js';
 import { configSource, ownFile } from './files.js';
+import { basename } from 'node:path';
 import { parseConfig, readConfigText } from './read.js';
 
 export const FORMAT_KEY = 'format';
@@ -64,8 +65,12 @@ export function readCommitted(root: string, file: string): Committed | null {
 }
 
 /** The refusal of config file `file`'s `format`, or null when it declares `current` (default: its current format). */
-export function formatProblem(data: Map<unknown, unknown>, file: string, current: string = currentFormat(file)): string | null {
-  const kind = file === ownFile() ? 'format.trmv-' : 'format.';
+export function formatProblem(
+  data: Map<unknown, unknown>,
+  file: string,
+  current: string = currentFormat(basename(file)),
+): string | null {
+  const kind = basename(file) === ownFile() ? 'format.trmv-' : 'format.';
   if (!data.has(FORMAT_KEY)) return message(`${kind}missing`, { current });
   const declared = data.get(FORMAT_KEY);
   if (!isVersion(declared)) return message(`${kind}invalid`, { value: declared, current });
@@ -75,20 +80,20 @@ export function formatProblem(data: Map<unknown, unknown>, file: string, current
 }
 
 /**
- * The format check's refusal for config file `file` (default: the one trmv reads), or null to go on (also for a committed
+ * The format check's refusal for the config file `pkg` reads, or null to go on (also without one, with several, or for a
  * file it cannot judge).
  */
-export function checkFormat(root: string, file: string | null = null): string | null {
-  const name = file ?? configSource(root);
-  if (name === null) return null;
+export function checkFormat(root: string, pkg = 'trmv'): string | null {
+  let name: string | null;
   let committed: Committed | null;
   try {
-    committed = readCommitted(root, name);
+    name = configSource(root, pkg);
+    committed = name === null ? null : readCommitted(root, name);
   } catch (error) {
     if (error instanceof ConfigError) return null;
     throw error;
   }
-  return committed?.data ? formatProblem(committed.data, name) : null;
+  return name !== null && committed?.data ? formatProblem(committed.data, name) : null;
 }
 
 /** The canonical repr of a normalized value, with every mapping's entries sorted. */

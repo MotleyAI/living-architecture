@@ -396,6 +396,7 @@ restructure; their goldens are hand-written.
 | *(new)* `--base upstream/main` scans from the merge base with the remote-tracking ref | 1 | `leak-check-remote-tracking-base` |
 | *(new)* `--text -`: each stdin line; case-insensitive whole tokens in contract spelling; a token inside a word does not match; every core and every waivable token | 0/1 | `leak-check-stdin-text`, `leak-check-case-and-punctuation`, `leak-check-token-inside-word`, `leak-check-core-tokens`, `leak-check-waivable-tokens` |
 | *(new)* usage: both modes, neither mode | 2 | `leak-check-usage-both-modes`, `leak-check-usage-no-mode` |
+| *(new)* the base ref does not resolve: the shared git error | 2 | `leak-check-base-missing` |
 | *(new)* outside stealth mode: a note on stderr, nothing on stdout | 0 | `leak-check-not-stealth` |
 
 ## la-count-comments
