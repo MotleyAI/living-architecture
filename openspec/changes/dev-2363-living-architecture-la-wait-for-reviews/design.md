@@ -73,6 +73,8 @@ never depends on `la`) is untouched. No model or arc42 edits are needed. The spe
 18. The rewritten settle requirement also documents CodeRabbit's existing `skipped` outcome: exit 3, and the
     re-trigger command only for rate limited or paused. This is spec text only and brings the spec in line with the
     code and the `shim-wait-for-reviews-skipped*` cases. (user)
+19. Local Sonar pre-check before every push, in pr-review and pr-implement, on each changed production source file;
+    when the tool fails or is unavailable, it is ignored. (user)
 
 ## Approved wording
 
@@ -154,6 +156,12 @@ reply-to-pr-thread/SKILL.md:
 Docs:
 - `docs/commands.md`: the fetch row becomes ``| `la-fetch-review-comments <PR>` | Unresolved threads, review bodies and conversation comments from every reviewer, each marked answered; CodeRabbit's nitpicks and outside-diff comments |``, and the `la-wait-for-reviews` row says "review comment" in place of "CodeRabbit comment".
 - `docs/skills.md`: ``| `la:fetch-review-comments` | Every review comment and unresolved thread on a PR, from any reviewer |``.
+
+### Sonar pre-check (user, approved wording)
+- pr-review Step 1, the local-gates bullet `(Sonar on the PR) local Sonar pre-check: …` becomes:
+  `- local Sonar pre-check, before every push: \`mcp__sonarqube__analyze_code_snippet\` on each changed production source file (single-file only, a pre-filter, NOT a substitute for the pushed Sonar gate); fix its findings like any gate's. If the tool fails or is unavailable, ignore it;`
+- pr-implement Step 2, a paragraph after **Type check.**:
+  `**Sonar pre-check.** Run \`mcp__sonarqube__analyze_code_snippet\` on each changed production source file and fix its findings. If the tool fails or is unavailable, ignore it.`
 
 ## Risks / Trade-offs
 

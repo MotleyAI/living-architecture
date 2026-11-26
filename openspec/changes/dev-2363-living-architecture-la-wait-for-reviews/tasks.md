@@ -36,3 +36,7 @@
 - [x] 7.1 `scripts/sync-shared`, then verify `scripts/sync-shared --check` and the drift tests pass
 - [x] 7.2 Run the local test scope (the affected Python tests and the `conformance/la` cases through both twins), `ruff`, `basedpyright`, npm lint/typecheck, `la-arch-check` and `openspec validate dev-2363-living-architecture-la-wait-for-reviews --strict`; verify all green
 - [x] 7.3 Drop the stale `fetch-coderabbit-threads` entries from `python/{la,dr}/tests/durations/*.json`; verify no test names the old command
+
+## 8. Sonar pre-check (skills)
+
+- [ ] 8.1 pr-review and pr-implement: the Sonar pre-check wording (design.md), verbatim; verify `test_skills.py` and `plugin validate plugin/la` pass

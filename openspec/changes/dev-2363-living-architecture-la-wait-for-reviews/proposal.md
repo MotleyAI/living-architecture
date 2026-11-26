@@ -19,7 +19,8 @@ CodeRabbit's comments are watched, fetched and answered, so comments by people a
 - Skills: process-reviews handles merge conflicts and triages every reviewer's comments, and drafts replies to
   comments not from CodeRabbit for the user's OK. pr-review merges the base before every push and puts reply drafts
   to the user. The fetch-coderabbit-threads skill becomes fetch-review-comments. reply-to-pr-thread documents the new
-  URL forms.
+  URL forms. pr-review and pr-implement run the local Sonar pre-check before every push, ignoring it when the tool
+  fails.
 
 ## Capabilities
 
@@ -35,6 +36,6 @@ CodeRabbit's comments are watched, fetched and answered, so comments by people a
   fetch-coderabbit-threads.sh, reply-to-pr-thread.sh), `shared/la/cli.yaml`, and both twins' snapshots.
 - The Python and npm entry points for the renamed command (`python/la/pyproject.toml`, `node/la/package.json`).
 - The `conformance/la/` corpus and `python/la/tests/`.
-- `plugin/la/skills/` (process-reviews, pr-review, fetch-review-comments, reply-to-pr-thread), `docs/commands.md`,
+- `plugin/la/skills/` (process-reviews, pr-review, pr-implement, fetch-review-comments, reply-to-pr-thread), `docs/commands.md`,
   `docs/skills.md`.
 - The user's global CLAUDE.md names the old fetch command. Its replacement wording is tracked on the release issue.
