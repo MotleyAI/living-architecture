@@ -49,6 +49,6 @@ Calibration notes (read first):
 ## 6. Finish
 
 - [x] 6.1 Run the enforcement bundle (`la-arch-check`, `npx likec4 validate`, `trmv-typecheck` against its baseline), the release-rule tests and the local test scope
-- [ ] 6.2 Put in the PR description the maintainer re-setup: link `~/.claude/skills/trmv` → `plugin/trmv`, re-link `~/.claude/skills/la` → `plugin/la`, reinstall with `uv tool install -e python/la --with-editable python/trmv --with-executables-from type-rename-move`
+- [x] 6.2 Put in the PR description the maintainer re-setup: link `~/.claude/skills/trmv` → `plugin/trmv`, re-link `~/.claude/skills/la` → `plugin/la`, reinstall with `uv tool install -e python/la --with-editable python/trmv --with-executables-from type-rename-move`
 - [x] 6.3 Edit the DEV-2371 comment in place to design decision 5's wording
 - [ ] 6.4 At archive time (pr-review): after `openspec archive`, apply `rename_deltas.py`'s substitution to the scenario titles and the Purposes of `refactor`, `typecheck` and `doctor` in `openspec/specs/`; verify `openspec validate --strict --all` and the guard test
