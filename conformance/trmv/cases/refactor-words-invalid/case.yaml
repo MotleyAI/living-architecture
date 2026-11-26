@@ -1,0 +1,12 @@
+kind: neutral
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'an invalid word table (an uppercase from, a carve-out with two matchers, a carve-out word that is no from): words-invalid
+  per item, words before carve_outs, by index, from the invoking twin'

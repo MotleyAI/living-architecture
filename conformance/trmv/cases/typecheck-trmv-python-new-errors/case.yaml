@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: trmv-typecheck
+expect:
+  exit: 1
+note: the renamed command; typecheck-alias-python-new-errors runs the alias on the same repo
+golden: manual

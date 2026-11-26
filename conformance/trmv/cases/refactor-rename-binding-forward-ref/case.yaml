@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Old
+- --new-name
+- Next
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a forward-reference string rewritten inside a function binding a local of the new name: name-conflict naming the local'

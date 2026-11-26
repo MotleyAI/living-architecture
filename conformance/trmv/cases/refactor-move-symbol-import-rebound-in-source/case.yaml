@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a name the source imports and then rebinds at top level has no single value before the move and one after it;
+  refused, nothing written

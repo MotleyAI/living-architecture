@@ -1,3 +1,0 @@
-dr-typecheck: checking typescript with tsc --noEmit
-Error: Cannot find module 'typescript/lib/tsc.js'
-dr-typecheck: typescript: tsc --noEmit exited 1 without a parsable diagnostic

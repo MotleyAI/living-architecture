@@ -1,4 +1,4 @@
-"""The publish workflow builds both packages and publishes dr before la on each registry, after the release check."""
+"""The publish workflow builds both packages and publishes trmv before la on each registry, after the release check."""
 
 import json
 import subprocess
@@ -21,21 +21,21 @@ def test_registries_publish_only_after_the_release_check() -> None:
     assert jobs["pypi"]["needs"] == jobs["npm"]["needs"] == "check"
 
 
-def test_pypi_publishes_dr_before_la() -> None:
+def test_pypi_publishes_trmv_before_la() -> None:
     steps = _jobs()["pypi"]["steps"]
     builds = [step["run"] for step in steps if step.get("run", "").startswith("uv build")]
     assert builds == [
-        "uv build --package deterministic-refactor --out-dir dist/dr",
+        "uv build --package type-rename-move --out-dir dist/trmv",
         "uv build --package living-architecture --out-dir dist/la",
     ]
     published = [step["with"] for step in steps if "pypi-publish" in step.get("uses", "")]
-    assert [options["packages-dir"] for options in published] == ["python/dist/dr/", "python/dist/la/"]
+    assert [options["packages-dir"] for options in published] == ["python/dist/trmv/", "python/dist/la/"]
     assert all(options["skip-existing"] is True for options in published)
 
 
-def test_npm_publishes_dr_before_la() -> None:
+def test_npm_publishes_trmv_before_la() -> None:
     [publish] = [step["run"] for step in _jobs()["npm"]["steps"] if "npm publish" in step.get("run", "")]
-    assert "for package in dr la;" in publish
+    assert "for package in trmv la;" in publish
     assert 'npm publish -w "$package" --provenance --access public' in publish
 
 
@@ -53,9 +53,9 @@ LA_LOOKUP_DENIED = ("", "npm error code E401", 1)
 
 
 def _publish(tmp_path: Path, la_view: tuple[str, str, int]) -> tuple[int, list[str]]:
-    """Run the npm publish step where deterministic-refactor@1.2.0 is on npm; its exit code and the publishes it ran."""
+    """Run the npm publish step where type-rename-move@1.2.0 is on npm; its exit code and the publishes it ran."""
     [publish] = [step["run"] for step in _jobs()["npm"]["steps"] if "npm publish" in step.get("run", "")]
-    for package, name in (("dr", "deterministic-refactor"), ("la", "living-architecture")):
+    for package, name in (("trmv", "type-rename-move"), ("la", "living-architecture")):
         (tmp_path / package).mkdir()
         (tmp_path / package / "package.json").write_text(json.dumps({"name": name, "version": "1.2.0"}))
     fake = tmp_path / "bin"
@@ -63,7 +63,7 @@ def _publish(tmp_path: Path, la_view: tuple[str, str, int]) -> tuple[int, list[s
     out, err, code = la_view
     (fake / "npm").write_text(
         "#!/bin/sh\n"
-        'if [ "$1 $2" = "view deterministic-refactor@1.2.0" ]; then echo 1.2.0; exit 0; fi\n'
+        'if [ "$1 $2" = "view type-rename-move@1.2.0" ]; then echo 1.2.0; exit 0; fi\n'
         f'if [ "$1" = view ]; then printf %s "{out}"; printf %s "{err}" >&2; exit {code}; fi\n'
         'echo "$*" >> "$NPM_LOG"\n'
     )

@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .basedpyright/baseline.json
+  - pkg/store.py
+golden: manual
+note: 'no baseline file: no checker runs (the configured one does not exist) and the output equals the rename without alignment'

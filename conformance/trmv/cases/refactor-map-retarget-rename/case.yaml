@@ -1,0 +1,13 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a retarget beside a rename of its target: the alias''s reader reads the target''s new name, no conflict'

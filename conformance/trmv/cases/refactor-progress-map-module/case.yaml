@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-map-module
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a map of a module and a function: one references line per entry, one rules line for the function''s group'

@@ -1,0 +1,29 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: trmv-compliance
+args:
+- src/a.py
+- src/b.ts
+bins:
+- dir: npm-twin
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    trmv-compliance: |
+      #!/bin/sh
+      echo "npm-twin: trmv-compliance pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "partial"
+      kill -KILL $$
+expect:
+  exit: 2
+  files:
+  - probe.log
+note: 'the other twin is killed by a signal: nothing on stdout, exit 2'

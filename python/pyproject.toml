@@ -1,11 +1,11 @@
-# The uv workspace of the PyPI twins: deterministic-refactor (dr), living-architecture (la) and the dev-only
+# The uv workspace of the PyPI twins: type-rename-move (trmv), living-architecture (la) and the dev-only
 # conformance runner. Each member runs its own tests from its directory.
 [tool.uv.workspace]
-members = ["dr", "la", "conformance"]
+members = ["trmv", "la", "conformance"]
 
 [dependency-groups]
 dev = [
-    "deterministic-refactor",
+    "type-rename-move",
     "living-architecture",
     "conformance-runner",
     "pytest>=8",
@@ -18,14 +18,14 @@ dev = [
 ]
 
 [tool.uv.sources]
-deterministic-refactor = { workspace = true }
+type-rename-move = { workspace = true }
 living-architecture = { workspace = true }
 conformance-runner = { workspace = true }
 
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-src = ["dr/src", "la/src", "conformance/src", "dr/tests", "la/tests"]
+src = ["trmv/src", "la/src", "conformance/src", "trmv/tests", "la/tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/tests/*" = ["FLY002"]

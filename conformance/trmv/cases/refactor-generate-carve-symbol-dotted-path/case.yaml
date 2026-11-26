@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a symbols carve-out whose file is written with a leading ./ keeps its declaration: carved, not written'

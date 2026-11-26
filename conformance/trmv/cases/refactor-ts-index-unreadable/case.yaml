@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- src/a.ts
+- --symbol
+- foo
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+chmod:
+  architecture/index.yaml: '0000'
+expect:
+  exit: 1
+  files:
+  - src/a.ts
+golden: manual
+note: an index.yaml that cannot be read is reported from the os.* templates as any unusable index, nothing written

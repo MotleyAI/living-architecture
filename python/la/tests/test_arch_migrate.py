@@ -13,10 +13,10 @@ from typing import Any, TypeAlias
 
 import pytest
 
-from deterministic_refactor import config
 from living_architecture import contract
 from living_architecture.c4 import migrate as c4_migrate
 from living_architecture.cli.la_arch_migrate import la_arch_migrate
+from trmv import config
 
 CASES = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "conformance" / "la" / "cases"
 

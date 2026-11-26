@@ -6,7 +6,7 @@ architecture: true
 reviewers:
   codex: true
 commands:
-  test: (cd python/dr && uv run pytest -q) && (cd python/la && uv run pytest -q) && npm --prefix node test
+  test: (cd python/trmv && uv run pytest -q) && (cd python/la && uv run pytest -q) && npm --prefix node test
   lint: uv run --project python ruff check python && npm --prefix node run lint
   typecheck:
     python: uv run --project python basedpyright -p python

@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a lambda parameter holding a word is listed as not-generated and no entry locates it

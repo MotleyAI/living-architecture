@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --keep, lib/shim.py, --keep, lib/near.py:8]
+  typescript: [--apply, rename-map, renames.yaml, --keep, lib/shim.ts, --keep, lib/near.ts:7]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'an unneeded file keep and an unmatched line keep: the warning, then the final report with the line keep, no
+  [conflicts], nothing written'

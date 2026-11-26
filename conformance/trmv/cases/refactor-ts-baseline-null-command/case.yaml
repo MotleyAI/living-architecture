@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- src/a.ts
+- --symbol
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/a.ts
+note: 'the TypeScript baseline file exists and commands.typecheck.typescript is null: the baseline phase still runs and
+  is announced, as only the Python phase needs a command'

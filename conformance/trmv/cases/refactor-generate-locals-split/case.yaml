@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'one carved local among same-named locals: the others are written by their own paths, not as a wildcard, and the carved
+  one is listed'

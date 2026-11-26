@@ -1,0 +1,11 @@
+kind: neutral
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'entries 2 and 4 invalid: map-invalid for each in index order, printed before routing by either twin'

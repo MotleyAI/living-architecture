@@ -1,9 +1,0 @@
-kind: adapter
-languages:
-- python
-fixture: typecheck-python
-command: dr-typecheck
-expect:
-  exit: 2
-note: a newer dr file format names it as the dr version to upgrade to
-golden: manual

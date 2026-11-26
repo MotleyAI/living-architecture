@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-map-module
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a function entry and a module entry onto a taken name: name-conflict in the checks, no reference search'

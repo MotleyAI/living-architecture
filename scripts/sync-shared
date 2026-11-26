@@ -16,9 +16,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "shared"
 # Each twin's snapshot, by the package whose contract it vendors.
 SNAPSHOTS = {
-    ROOT / "python" / "dr" / "src" / "deterministic_refactor" / "contract" / "data": "dr",
+    ROOT / "python" / "trmv" / "src" / "trmv" / "contract" / "data": "trmv",
     ROOT / "python" / "la" / "src" / "living_architecture" / "contract" / "data": "la",
-    ROOT / "node" / "dr" / "src" / "contract" / "data": "dr",
+    ROOT / "node" / "trmv" / "src" / "contract" / "data": "trmv",
     ROOT / "node" / "la" / "src" / "contract" / "data": "la",
 }
 

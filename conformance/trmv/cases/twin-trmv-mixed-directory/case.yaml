@@ -1,0 +1,12 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+golden: manual
+command: trmv-compliance
+args:
+- src
+expect:
+  exit: 1
+note: a directory expands to both repo languages' files (declaration files excluded); every check of each file's language

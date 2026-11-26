@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+- --without
+- pkg/m.py:9
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/m.py
+  - pkg/reads.py
+golden: manual
+note: a model_fields read of a same-named field of a --without model is unchanged and unlisted

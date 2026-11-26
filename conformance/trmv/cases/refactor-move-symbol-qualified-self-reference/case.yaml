@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a dotted use of the moved symbol through its old module, inside the moved code, becomes its bare name; the old
+  module's import is not carried over

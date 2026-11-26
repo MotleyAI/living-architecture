@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from conformance_runner import fake_gh_cli
-from deterministic_refactor.contract import compute_hash
 from living_architecture.contract import snapshot_dir
+from trmv.contract import compute_hash
 
 SCRIPTS_DIR = snapshot_dir() / "scripts"
 
@@ -88,25 +88,25 @@ def run_script(fake_gh: FakeGh) -> Callable[..., subprocess.CompletedProcess[str
 
 
 REPO_SCRIPTS = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir()) / "scripts"
-FORMATS_CONFIG = "shared/dr/config.yaml"
+FORMATS_CONFIG = "shared/trmv/config.yaml"
 RELEASE_FILES = {
-    "shared/dr/cli.yaml": "commands: {dr-x: {}}\n",
+    "shared/trmv/cli.yaml": "commands: {trmv-x: {}}\n",
     FORMATS_CONFIG: (
-        "files: [deterministic-refactor.yaml, living-architecture.yaml]\nformats:\n"
-        "  deterministic-refactor.yaml: [0.4.0]\n  living-architecture.yaml: [0.4.0]\n"
+        "files: [trmv.yaml, living-architecture.yaml]\nformats:\n"
+        "  trmv.yaml: [0.4.0]\n  living-architecture.yaml: [0.4.0]\n"
     ),
     "shared/la/cli.yaml": "commands: {la-x: {}}\n",
-    "conformance/dr/README.md": "# dr corpus\n",
+    "conformance/trmv/README.md": "# trmv corpus\n",
     "conformance/la/README.md": "# la corpus\n",
-    "python/dr/src/deterministic_refactor/__init__.py": "",
+    "python/trmv/src/trmv/__init__.py": "",
     "python/la/src/living_architecture/__init__.py": "",
     "python/la/tests/test_x.py": "",
     "node/scripts/conformance.mjs": "",
-    "node/dr/src/index.ts": "export {};\n",
+    "node/trmv/src/index.ts": "export {};\n",
     "node/la/src/index.ts": "export {};\n",
-    "node/dr/scripts/build.mjs": "",
+    "node/trmv/scripts/build.mjs": "",
     "node/la/scripts/build.mjs": "",
-    "node/dr/tsconfig.json": "{}\n",
+    "node/trmv/tsconfig.json": "{}\n",
     "node/la/tsconfig.json": "{}\n",
     "node/la/tsconfig.build.json": "{}\n",
     "plugin/la/skills/pr/SKILL.md": "skill\n",
@@ -115,14 +115,14 @@ RELEASE_FILES = {
 }
 # Each twin's snapshot hash file, by the package whose contract it vendors.
 RELEASE_SNAPSHOTS = {
-    "python/dr/src/deterministic_refactor/contract/data/CONTRACT_HASH": "dr",
+    "python/trmv/src/trmv/contract/data/CONTRACT_HASH": "trmv",
     "python/la/src/living_architecture/contract/data/CONTRACT_HASH": "la",
-    "node/dr/src/contract/data/CONTRACT_HASH": "dr",
+    "node/trmv/src/contract/data/CONTRACT_HASH": "trmv",
     "node/la/src/contract/data/CONTRACT_HASH": "la",
 }
 # The manifests and lockfiles naming a third-party dependency, each pinning it by its own spec.
 DEPENDENCY_MANIFESTS = [
-    "python/dr/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/dr/package.json",
+    "python/trmv/pyproject.toml", "python/la/pyproject.toml", "python/uv.lock", "node/trmv/package.json",
     "node/la/package.json", "node/package-lock.json",
 ]
 
@@ -137,8 +137,8 @@ class ReleaseRepo:
 
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.deps = {"python/dr/pyproject.toml": ">=6", "python/la/pyproject.toml": ">=6", "python/uv.lock": "6.0.2",
-                     "node/dr/package.json": "^8.20.0", "node/la/package.json": "^8.20.0",
+        self.deps = {"python/trmv/pyproject.toml": ">=6", "python/la/pyproject.toml": ">=6", "python/uv.lock": "6.0.2",
+                     "node/trmv/package.json": "^8.20.0", "node/la/package.json": "^8.20.0",
                      "node/package-lock.json": "8.20.0"}
         self.overrides: dict[str, str] = {}
         shutil.copytree(REPO_SCRIPTS, root / "scripts")
@@ -171,44 +171,44 @@ class ReleaseRepo:
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
     def manifests(self, version: str) -> dict[str, str]:
-        """Every manifest and lockfile at `version`, la pinning dr to its minor."""
+        """Every manifest and lockfile at `version`, la pinning trmv to its minor."""
         base, upper = _series(version)
         pin, tilde, deps = f">={base},<{upper}", f"~{base}", self.deps
         return {
-            "python/pyproject.toml": '[tool.uv.workspace]\nmembers = ["dr", "la", "conformance"]\n',
-            "python/dr/pyproject.toml": (
-                f'[project]\nname = "deterministic-refactor"\nversion = "{version}"\n'
-                f'dependencies = ["pyyaml{deps["python/dr/pyproject.toml"]}"]\n'
+            "python/pyproject.toml": '[tool.uv.workspace]\nmembers = ["trmv", "la", "conformance"]\n',
+            "python/trmv/pyproject.toml": (
+                f'[project]\nname = "type-rename-move"\nversion = "{version}"\n'
+                f'dependencies = ["pyyaml{deps["python/trmv/pyproject.toml"]}"]\n'
             ),
             "python/la/pyproject.toml": (
                 f'[project]\nname = "living-architecture"\nversion = "{version}"\n'
-                f'dependencies = ["deterministic-refactor{pin}", "pyyaml{deps["python/la/pyproject.toml"]}"]\n'
+                f'dependencies = ["type-rename-move{pin}", "pyyaml{deps["python/la/pyproject.toml"]}"]\n'
             ),
             "python/uv.lock": (
-                f'version = 1\n\n[[package]]\nname = "deterministic-refactor"\nversion = "{version}"\n'
-                f'source = {{ editable = "dr" }}\n\n[[package]]\nname = "living-architecture"\nversion = "{version}"\n'
+                f'version = 1\n\n[[package]]\nname = "type-rename-move"\nversion = "{version}"\n'
+                f'source = {{ editable = "trmv" }}\n\n[[package]]\nname = "living-architecture"\nversion = "{version}"\n'
                 f'source = {{ editable = "la" }}\n\n[[package]]\nname = "pyyaml"\nversion = "{deps["python/uv.lock"]}"\n'
             ),
-            "node/package.json": '{"name": "workspace", "private": true, "workspaces": ["dr", "la"]}\n',
-            "node/dr/package.json": (
-                f'{{"name": "deterministic-refactor", "version": "{version}",'
-                f' "dependencies": {{"ajv": "{deps["node/dr/package.json"]}"}}}}\n'
+            "node/package.json": '{"name": "workspace", "private": true, "workspaces": ["trmv", "la"]}\n',
+            "node/trmv/package.json": (
+                f'{{"name": "type-rename-move", "version": "{version}",'
+                f' "dependencies": {{"ajv": "{deps["node/trmv/package.json"]}"}}}}\n'
             ),
             "node/la/package.json": (
                 f'{{"name": "living-architecture", "version": "{version}",'
-                f' "dependencies": {{"deterministic-refactor": "{tilde}", "ajv": "{deps["node/la/package.json"]}"}}}}\n'
+                f' "dependencies": {{"type-rename-move": "{tilde}", "ajv": "{deps["node/la/package.json"]}"}}}}\n'
             ),
             "node/package-lock.json": (
                 f'{{"name": "workspace", "lockfileVersion": 3, "packages": {{'
-                f'"": {{"name": "workspace", "workspaces": ["dr", "la"]}}, '
-                f'"dr": {{"name": "deterministic-refactor", "version": "{version}"}}, '
+                f'"": {{"name": "workspace", "workspaces": ["trmv", "la"]}}, '
+                f'"trmv": {{"name": "type-rename-move", "version": "{version}"}}, '
                 f'"la": {{"name": "living-architecture", "version": "{version}",'
-                f' "dependencies": {{"deterministic-refactor": "{tilde}"}}}}, '
+                f' "dependencies": {{"type-rename-move": "{tilde}"}}}}, '
                 f'"node_modules/ajv": {{"version": "{deps["node/package-lock.json"]}"}}}}}}\n'
             ),
-            "plugin/dr/.claude-plugin/plugin.json": f'{{"name": "dr", "version": "{version}"}}\n',
+            "plugin/trmv/.claude-plugin/plugin.json": f'{{"name": "trmv", "version": "{version}"}}\n',
             "plugin/la/.claude-plugin/plugin.json": (
-                f'{{"name": "la", "version": "{version}", "dependencies": [{{"name": "dr", "version": "{tilde}"}}]}}\n'
+                f'{{"name": "la", "version": "{version}", "dependencies": [{{"name": "trmv", "version": "{tilde}"}}]}}\n'
             ),
         }
 
@@ -225,9 +225,12 @@ class ReleaseRepo:
     def tag(self, name: str, *, annotated: bool = False) -> None:
         self.git("tag", *(["-a", "-m", name] if annotated else []), name)
 
-    def release(self, version: str, *, annotated: bool = False) -> None:
+    def release(self, version: str, *, annotated: bool = False, plugin_tag: bool = True) -> None:
+        """Bump and tag `version`, and its trmv plugin tag at the same commit unless `plugin_tag` is False."""
         self.bump(version)
         self.tag(f"v{version}", annotated=annotated)
+        if plugin_tag:
+            self.tag(f"trmv--v{version}")
 
     def shallow_clone(self, tag: str) -> Path:
         clone = self.root.parent / f"{self.root.name}-shallow"

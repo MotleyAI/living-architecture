@@ -1,0 +1,16 @@
+kind: neutral
+command: trmv-typecheck
+args:
+- --realign-from
+- HEAD
+- --write-baseline
+git:
+- commit: init
+expect:
+  exit: 2
+  stdout: ignore
+  stderr: ignore
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: --realign-from with --write-baseline is a usage error and writes no baseline

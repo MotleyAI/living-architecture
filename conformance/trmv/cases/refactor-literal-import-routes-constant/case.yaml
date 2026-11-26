@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+fixture: literal-routes
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/consts.py
+  - routes/constant.py
+golden: manual
+note: 'a Final constant holding the old value reaches a file without the string through a re-export chain and is passed
+  to the member type: the constant''s literal is rewritten, the call unchanged; exit 0'

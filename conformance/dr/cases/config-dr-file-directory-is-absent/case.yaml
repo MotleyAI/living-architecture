@@ -1,9 +1,0 @@
-kind: neutral
-command: dr-config
-args:
-- get
-- commands.typecheck.python
-expect:
-  exit: 0
-note: a deterministic-refactor.yaml that is not a regular file counts as absent
-golden: manual

@@ -1,2 +1,0 @@
-dr-typecheck: checking python with nosuchchecker --strict
-dr-typecheck: python: nosuchchecker not found in .venv/bin or on PATH

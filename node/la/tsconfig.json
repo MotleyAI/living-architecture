@@ -15,11 +15,11 @@
     ],
     "noEmit": true,
     "paths": {
-      "deterministic-refactor": [
-        "../dr/src"
+      "type-rename-move": [
+        "../trmv/src"
       ],
-      "deterministic-refactor/*": [
-        "../dr/src/*/index.ts"
+      "type-rename-move/*": [
+        "../trmv/src/*/index.ts"
       ]
     }
   },

@@ -1,4 +1,4 @@
-"""This repo's architecture model splits each language root into dr and la, with la -> dr the only cross arrow."""
+"""This repo's architecture model splits each language root into trmv and la, with la -> trmv the only cross arrow."""
 
 import re
 from pathlib import Path
@@ -20,36 +20,36 @@ def _index() -> dict[str, Any]:
 def test_index_maps_the_packages_per_language() -> None:
     index = _index()
     assert index["python"] == {
-        "source_roots": ["python/dr/src", "python/la/src"],
-        "root_packages": ["deterministic_refactor", "living_architecture"],
+        "source_roots": ["python/trmv/src", "python/la/src"],
+        "root_packages": ["trmv", "living_architecture"],
     }
     assert {k: v for k, v in index["typescript"].items() if k != "tsconfig"} == {
         "source_root": "node",
-        "root_packages": ["dr/src", "la/src"],
+        "root_packages": ["trmv/src", "la/src"],
     }
 
 
 def test_doctor_spec_touches_both_doctors() -> None:
-    assert _index()["cross_cutting_specs"]["doctor"] == {"touches": ["python.dr.doctor", "python.la.doctor"]}
+    assert _index()["cross_cutting_specs"]["doctor"] == {"touches": ["python.trmv.doctor", "python.la.doctor"]}
 
 
 @pytest.mark.parametrize(
-    ("root", "dr_package", "la_package"),
-    [("python", "deterministic_refactor", "living_architecture"), ("typescript", "dr/src", "la/src")],
+    ("root", "trmv_package", "la_package"),
+    [("python", "trmv", "living_architecture"), ("typescript", "trmv/src", "la/src")],
 )
-def test_each_root_has_a_dr_and_an_la_node(root: str, dr_package: str, la_package: str) -> None:
+def test_each_root_has_a_trmv_and_an_la_node(root: str, trmv_package: str, la_package: str) -> None:
     body = MODEL.split(f"{root} = system", 1)[1]
-    dr = re.search(r"^    dr = node 'deterministic-refactor' \{\s*metadata \{\s*package '([^']+)'", body, re.MULTILINE)
+    trmv = re.search(r"^    trmv = node 'type-rename-move' \{\s*metadata \{\s*package '([^']+)'", body, re.MULTILINE)
     la = re.search(r"^    la = node 'living-architecture' \{\s*metadata \{\s*package '([^']+)'", body, re.MULTILINE)
-    assert dr
-    assert dr.group(1) == dr_package
+    assert trmv
+    assert trmv.group(1) == trmv_package
     assert la
     assert la.group(1) == la_package
 
 
-def test_la_to_dr_is_the_only_cross_package_arrow() -> None:
+def test_la_to_trmv_is_the_only_cross_package_arrow() -> None:
     def package(endpoint: str) -> str:
         return endpoint.split(".")[0]
 
-    cross = [(s, t) for s, t in RELATION.findall(MODEL) if {package(s), package(t)} == {"dr", "la"}]
-    assert sorted(cross) == [("la", "dr"), ("la", "dr")]
+    cross = [(s, t) for s, t in RELATION.findall(MODEL) if {package(s), package(t)} == {"trmv", "la"}]
+    assert sorted(cross) == [("la", "trmv"), ("la", "trmv")]

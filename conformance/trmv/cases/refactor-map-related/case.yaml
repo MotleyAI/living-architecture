@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/storage.py
+  - pkg/use.py
+  - renames.yaml
+golden: manual
+note: 'a map of a method, a related method and the first method''s parameter, applied: one header per entry in map order,
+  one diff per file, every reference of the three symbols renamed'

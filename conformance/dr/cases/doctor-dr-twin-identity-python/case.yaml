@@ -1,9 +1,0 @@
-kind: neutral
-twin: python
-command: dr-doctor
-args: [--twin]
-normalize: [version, dr_contract_hash]
-expect:
-  exit: 0
-golden: manual
-note: dr-doctor --twin prints the python dr twin's language, version and dr contract hash

@@ -1,19 +1,19 @@
 # refactor Specification
 
 ## Purpose
-Verified refactoring for both languages: `dr-refactor` rewrites a rename or move across a project,
-`dr-compliance` reports what would make that rewrite unverifiable, and `dr-mock-lint` keeps test doubles
+Verified refactoring for both languages: `trmv-refactor` rewrites a rename or move across a project,
+`trmv-compliance` reports what would make that rewrite unverifiable, and `trmv-mock-lint` keeps test doubles
 type-bound, so the type-check ratchet plus the tests prove nothing was missed.
 
 ## Requirements
 
-### Requirement: dr-* inputs are routed by file language
-`dr-refactor`, `dr-compliance` and `dr-mock-lint` SHALL route each input file to the twin of its language,
-decided by the registry's source extensions. `dr-refactor`'s language SHALL be the language of `--file`
+### Requirement: trmv-* inputs are routed by file language
+`trmv-refactor`, `trmv-compliance` and `trmv-mock-lint` SHALL route each input file to the twin of its language,
+decided by the registry's source extensions. `trmv-refactor`'s language SHALL be the language of `--file`
 (`rename`, `retarget`, `move-symbol`), of every entry's `file` or `module` (`rename-map`) of `--module` (`move-module`), or the language the map-generation
 requirement selects (`generate-map`); a
 source of an unregistered extension, a `--dest` of another language, or a `--module` directory whose expansion
-holds more than one language, SHALL exit 1 with a finding. For `dr-compliance` and `dr-mock-lint`, an explicit file
+holds more than one language, SHALL exit 1 with a finding. For `trmv-compliance` and `trmv-mock-lint`, an explicit file
 of an unregistered extension, or matching the language's `declaration_globs`, SHALL be skipped with a warning on
 stderr; a directory SHALL expand only to files of the repo's languages, or of every registered language when the
 repo has none, excluding `declaration_globs` and `excluded_dirs`. The other language's files SHALL run in its twin
@@ -23,31 +23,31 @@ When the other twin cannot run or fails with exit 2 or a signal, the command SHA
 the failure as the forwarding rules define, and exit 2.
 
 #### Scenario: Python-only repo directory expansion is unchanged
-- **WHEN** `dr-compliance src` runs in a repo whose only repo language is Python and `src` also holds `app.js`
+- **WHEN** `trmv-compliance src` runs in a repo whose only repo language is Python and `src` also holds `app.js`
 - **THEN** only the `.py` files are checked and stdout equals today's golden
 
 #### Scenario: Mixed explicit files
-- **WHEN** `dr-mock-lint tests/test_a.py web/a.test.ts` runs through either twin, both files violating
+- **WHEN** `trmv-mock-lint tests/test_a.py web/a.test.ts` runs through either twin, both files violating
 - **THEN** stdout is the Python block followed by the TypeScript block, identical for both invoking twins, and the exit code is 1
 
 #### Scenario: Declaration file skipped
-- **WHEN** `dr-compliance types/api.d.ts` runs
+- **WHEN** `trmv-compliance types/api.d.ts` runs
 - **THEN** a warning names the skipped file on stderr and the exit code is 0
 
 #### Scenario: Relative paths from a subdirectory
-- **WHEN** `dr-refactor --project .. rename --file src/a.ts --symbol foo --new-name bar` runs through the PyPI twin from a subdirectory
+- **WHEN** `trmv-refactor --project .. rename --file src/a.ts --symbol foo --new-name bar` runs through the PyPI twin from a subdirectory
 - **THEN** the forwarded run resolves every path against the same working directory and the output equals the npm twin's own run
 
 #### Scenario: Cross-language destination
-- **WHEN** `dr-refactor move-symbol --file pkg/a.py --symbol foo --dest web/b.ts` runs
+- **WHEN** `trmv-refactor move-symbol --file pkg/a.py --symbol foo --dest web/b.ts` runs
 - **THEN** it exits 1 with the cross-language finding and changes nothing
 
 #### Scenario: Mixed-language directory refused
-- **WHEN** `dr-refactor move-module --module pkg --dest lib` runs and `pkg` holds both `.py` and `.ts` sources
+- **WHEN** `trmv-refactor move-module --module pkg --dest lib` runs and `pkg` holds both `.py` and `.ts` sources
 - **THEN** it exits 1 with a mixed-language finding and changes nothing
 
 #### Scenario: TypeScript map through the PyPI twin
-- **WHEN** `dr-refactor rename-map map.yaml` runs through the PyPI twin and every entry names a `.ts` file
+- **WHEN** `trmv-refactor rename-map map.yaml` runs through the PyPI twin and every entry names a `.ts` file
 - **THEN** the output and exit code equal the npm twin's own run
 
 #### Scenario: A module entry routes by its path
@@ -55,11 +55,11 @@ the failure as the forwarding rules define, and exit 2.
 - **THEN** stderr is `refactor.map-mixed-languages`, through either invoking twin, and the exit code is 2
 
 #### Scenario: Base comparison in both blocks
-- **WHEN** `dr-mock-lint --base main tests/test_a.py web/a.test.ts` runs through either twin
+- **WHEN** `trmv-mock-lint --base main tests/test_a.py web/a.test.ts` runs through either twin
 - **THEN** each language's block holds only its new findings, identical for both invoking twins
 
 ### Requirement: Refactor output format
-`dr-refactor` SHALL print one header line per refactor entry in order (a rename map's entries in map order, entries
+`trmv-refactor` SHALL print one header line per refactor entry in order (a rename map's entries in map order, entries
 merged as duplicates counting once), then one unified diff per changed file sorted by path (`--- a/<path>`,
 `+++ b/<path>`, three context lines, no end-of-file marker), the type-check baseline included, a `rename from` /
 `rename to` pair for every moved file, then the dry-run or applied footer. Progress, refusals, leftovers and warnings
@@ -69,7 +69,7 @@ diff format SHALL be pinned by shared vectors that both twins pass, covering a m
 endings, created and deleted files, and paths with spaces or non-ASCII characters.
 
 #### Scenario: TS rename dry-run
-- **WHEN** `dr-refactor rename --file src/a.ts --symbol foo --new-name bar` runs on a project where `src/b.ts` imports `foo`
+- **WHEN** `trmv-refactor rename --file src/a.ts --symbol foo --new-name bar` runs on a project where `src/b.ts` imports `foo`
 - **THEN** stdout is the rename header, the diffs of `src/a.ts` and `src/b.ts` in path order, and the dry-run footer naming 2 files, and no file changes
 
 #### Scenario: Map headers
@@ -85,11 +85,11 @@ endings, created and deleted files, and paths with spaces or non-ASCII character
 - **THEN** its diff formatter reproduces every shared diff vector byte for byte
 
 ### Requirement: TypeScript refactors are computed per project
-The TypeScript `dr-refactor` SHALL load the tsconfig named by `index.yaml`'s `typescript.tsconfig` when set;
+The TypeScript `trmv-refactor` SHALL load the tsconfig named by `index.yaml`'s `typescript.tsconfig` when set;
 otherwise, as TypeScript's own tooling does, it SHALL look at the `tsconfig.json` files from the source file's
 directory up to `<project>` and take the outermost one whose reference graph contains the file (a solution
 config), else the nearest one. It SHALL load every project in that reference graph, each with its own compiler
-options. `dr-compliance` and `dr-mock-lint` SHALL pick each input file's tsconfig the same way.
+options. `trmv-compliance` and `trmv-mock-lint` SHALL pick each input file's tsconfig the same way.
 An `architecture/index.yaml` that exists but is not valid UTF-8 or not valid YAML SHALL be an error, never a reason
 to fall back: a duplicate key SHALL be reported with the `c4.index-duplicate-key` wording, any other problem with
 the `c4.index-invalid-yaml` wording, and the command SHALL exit as for a named tsconfig that does not exist. Only a
@@ -108,16 +108,16 @@ twin's bundled one; target-repo code SHALL never be loaded.
 #### Scenario: tsconfig below the project root
 - **WHEN** `index.yaml` names no tsconfig, `<project>` has no `tsconfig.json`, and `web/tsconfig.json`
   includes `web/src`
-- **THEN** `dr-refactor` and `dr-compliance` on `web/src/a.ts` use `web/tsconfig.json`'s project and options
+- **THEN** `trmv-refactor` and `trmv-compliance` on `web/src/a.ts` use `web/tsconfig.json`'s project and options
 
 #### Scenario: Duplicate key in the index
-- **WHEN** `architecture/index.yaml` repeats a key and `dr-refactor`, `dr-compliance` or `dr-mock-lint` runs on a TS
+- **WHEN** `architecture/index.yaml` repeats a key and `trmv-refactor`, `trmv-compliance` or `trmv-mock-lint` runs on a TS
   file
 - **THEN** it prints `index.yaml is not valid YAML: ` followed by the duplicate-key message, exits as for a missing
-  named tsconfig (1 for `dr-refactor`, 2 for `dr-compliance` and `dr-mock-lint`) and writes nothing
+  named tsconfig (1 for `trmv-refactor`, 2 for `trmv-compliance` and `trmv-mock-lint`) and writes nothing
 
 #### Scenario: Invalid index YAML
-- **WHEN** `architecture/index.yaml` is not valid YAML or not valid UTF-8 and `dr-refactor` runs on a TS file
+- **WHEN** `architecture/index.yaml` is not valid YAML or not valid UTF-8 and `trmv-refactor` runs on a TS file
 - **THEN** it prints `index.yaml is not valid YAML`, exits 1 and writes nothing
 
 #### Scenario: Projects with different compiler options
@@ -248,7 +248,7 @@ rewrite every import of it, and every mock module path as "TypeScript module mov
 - **THEN** the test reads `vi.mock('../src/lib/api')`
 
 ### Requirement: Compliance check sets are per language
-Each language's `dr-compliance` checks SHALL be listed in the language registry. Without `--select`, every
+Each language's `trmv-compliance` checks SHALL be listed in the language registry. Without `--select`, every
 check of each file's language SHALL run. A selected id that no language lists SHALL exit 2; a selected id that
 only another language lists SHALL not apply to a file. Python's checks SHALL be `untyped-def`,
 `unannotated-attr`, `explicit-any`, `mock`, `rope-walk`, `attr-blindspot` and `string-blindspot`; TypeScript's SHALL
@@ -256,55 +256,55 @@ be `tsconfig`, `explicit-any`, `untyped-def`, `mock`, `attr-blindspot` and `stri
 `attr-blindspot` and `string-blindspot`, SHALL each run only when selected (or no `--select` is given) and `--attr
 NAME` is given. A `--select` naming an attribute check without `--attr` SHALL print `compliance.attr-required`,
 `{check}` the first attribute check `--select` names, on stderr and exit 2; `--attr` with a `--select` that names
-no attribute check SHALL print `compliance.attr-unselected` on stderr and exit 2. Every kind a `dr-compliance`
+no attribute check SHALL print `compliance.attr-unselected` on stderr and exit 2. Every kind a `trmv-compliance`
 finding prints, other than `parse-error`, SHALL be a registry check id. On files rope's walker fully covers and that
 reference no `Any`, Python's output without `--attr` SHALL be unchanged.
 
 #### Scenario: Python default unchanged
-- **WHEN** `dr-compliance pkg` runs without `--select` and without `--attr` in a Python repo whose files rope's
+- **WHEN** `trmv-compliance pkg` runs without `--select` and without `--attr` in a Python repo whose files rope's
   walker fully covers and reference no `Any`
 - **THEN** stdout equals today's golden
 
 #### Scenario: Python default reports Any
-- **WHEN** `dr-compliance pkg/a.py` runs without `--select` and `pkg/a.py` has `def f(x: Any) -> None`
+- **WHEN** `trmv-compliance pkg/a.py` runs without `--select` and `pkg/a.py` has `def f(x: Any) -> None`
 - **THEN** the `explicit-any` finding for that line is printed and the exit code is 1
 
 #### Scenario: Language-specific id
-- **WHEN** `dr-compliance --select tsconfig pkg/a.py` runs
+- **WHEN** `trmv-compliance --select tsconfig pkg/a.py` runs
 - **THEN** nothing is reported and the exit code is 0
 
 #### Scenario: Python-only id on a TypeScript file
-- **WHEN** `dr-compliance --select rope-walk web/a.ts` runs through either twin
+- **WHEN** `trmv-compliance --select rope-walk web/a.ts` runs through either twin
 - **THEN** nothing is reported and the exit code is 0
 
 #### Scenario: Selecting attr-blindspot
-- **WHEN** `dr-compliance --select attr-blindspot --attr formula pkg` runs on files with untyped `def` parameters
+- **WHEN** `trmv-compliance --select attr-blindspot --attr formula pkg` runs on files with untyped `def` parameters
   and untyped `.formula` receivers
 - **THEN** only `attr-blindspot` lines are printed and the exit code is 1
 
 #### Scenario: attr-blindspot without --attr
-- **WHEN** `dr-compliance --select attr-blindspot pkg` runs
+- **WHEN** `trmv-compliance --select attr-blindspot pkg` runs
 - **THEN** stderr is `compliance.attr-required` naming `attr-blindspot`, stdout is empty and the exit code is 2
 
 #### Scenario: --attr outside the selection
-- **WHEN** `dr-compliance --select untyped-def --attr formula pkg` runs
+- **WHEN** `trmv-compliance --select untyped-def --attr formula pkg` runs
 - **THEN** stderr is `compliance.attr-unselected`, stdout is empty and the exit code is 2
 
 #### Scenario: Selecting string-blindspot
-- **WHEN** `dr-compliance --select string-blindspot --attr formula pkg` runs on files holding `o.formula` and
+- **WHEN** `trmv-compliance --select string-blindspot --attr formula pkg` runs on files holding `o.formula` and
   `getattr(o, "formula")` with `o: Any`
 - **THEN** only the `string-blindspot` line of the `getattr` call is printed and the exit code is 1
 
 #### Scenario: Selecting attr-blindspot leaves string forms out
-- **WHEN** `dr-compliance --select attr-blindspot --attr formula pkg` runs on the same files
+- **WHEN** `trmv-compliance --select attr-blindspot --attr formula pkg` runs on the same files
 - **THEN** only the `attr-blindspot` line of `o.formula` is printed
 
 #### Scenario: string-blindspot without --attr
-- **WHEN** `dr-compliance --select string-blindspot pkg` runs
+- **WHEN** `trmv-compliance --select string-blindspot pkg` runs
 - **THEN** stderr is `compliance.attr-required` naming `string-blindspot`, stdout is empty and the exit code is 2
 
 #### Scenario: Both attribute checks by default
-- **WHEN** `dr-compliance --attr formula pkg` runs without `--select` on the same files
+- **WHEN** `trmv-compliance --attr formula pkg` runs without `--select` on the same files
 - **THEN** both lines are printed, sorted by path, line and column
 
 ### Requirement: TypeScript compliance checks
@@ -345,7 +345,7 @@ Findings SHALL be sorted per file; a file that does not parse SHALL produce the 
   report it
 
 ### Requirement: TypeScript mock lint
-TypeScript `dr-mock-lint` SHALL flag: `fn()` on `vi` or `jest` with neither a type argument nor an
+TypeScript `trmv-mock-lint` SHALL flag: `fn()` on `vi` or `jest` with neither a type argument nor an
 implementation; `mock`, `doMock` or `unstable_mockModule` on `vi` or `jest` with a factory whose module is not
 given in the typed form (Vitest: an `import('…')` first argument; Jest: a `typeof import('…')` type argument),
 or whose `import('…')` does not resolve; and, in files matching the test globs, a double assertion `as unknown
@@ -370,7 +370,7 @@ unshadowed global. There SHALL be no waiver.
 - **THEN** only the test file's line is reported
 
 ### Requirement: Python refactors walk every source construct
-The Python `dr-refactor` SHALL compute every move over modules that rope's source walker fully covers among the
+The Python `trmv-refactor` SHALL compute every move over modules that rope's source walker fully covers among the
 modules rope walks: those of the move. Every syntax node SHALL be walked, except expression contexts, operators,
 `with` items and the internals of f-strings and t-strings. Every string literal SHALL be covered over its full source
 text, including every piece of an implicit concatenation and any `r`/`b`/`u`/`f`/`t` prefix in any order and case;
@@ -390,7 +390,7 @@ Source positions SHALL be compared in characters, so non-ASCII text anywhere in 
 refactor.
 
 #### Scenario: Annotated parameter with a keyword default inside the annotation
-- **WHEN** `dr-refactor rename` runs on a project whose module holds `async def probe(p: Annotated[_Payload | None, Field(description="param text")] = None) -> str:`
+- **WHEN** `trmv-refactor rename` runs on a project whose module holds `async def probe(p: Annotated[_Payload | None, Field(description="param text")] = None) -> str:`
 - **THEN** it prints the rename's diff and exits 0
 
 #### Scenario: f-string concatenated with a literal holding a parenthesis
@@ -399,7 +399,7 @@ refactor.
 
 #### Scenario: f-string holding a triple quote
 - **WHEN** a module of the project holds `f"#!/bin/sh\n'''exec' '{sys.executable}' \"$0\" \"$@\"\n' '''\n{body}"`, and another holds `f'{a}"""{b}'`
-- **THEN** a rename of a name used in both prints every occurrence and exits 0, and `dr-compliance --select rope-walk` on both modules prints nothing and exits 0
+- **THEN** a rename of a name used in both prints every occurrence and exits 0, and `trmv-compliance --select rope-walk` on both modules prints nothing and exits 0
 
 #### Scenario: Class keywords and try-else-finally
 - **WHEN** a module holds `class A(B, metaclass=M, x=")"):` and a `try` with `except`, `else` and `finally` blocks whose bodies hold strings with parentheses
@@ -423,8 +423,8 @@ refactor.
 - **THEN** the rename prints its diff and exits 0 without `refactor.rope-walk`
 
 ### Requirement: A Python walker gap is refused with a located finding
-When rope's walker fails on a module while the Python `dr-refactor` computes a move, or leaves part of it uncovered,
-`dr-refactor` SHALL refuse with the `refactor.rope-walk` finding on stderr, naming the file and the line of the
+When rope's walker fails on a module while the Python `trmv-refactor` computes a move, or leaves part of it uncovered,
+`trmv-refactor` SHALL refuse with the `refactor.rope-walk` finding on stderr, naming the file and the line of the
 construct, and exit 1. Every gap in a module rope walks before the reference search SHALL be found in the `checks`
 phase, before any reference search, and all of them reported together; a gap met later SHALL refuse the entry that
 met it while the run goes on. It SHALL write no file, with or without
@@ -441,20 +441,20 @@ walker gap.
 - **THEN** stderr ends with `refactor.rope-walk` naming the module and line 3, the exit code is 1 and no file changes
 
 #### Scenario: Apply writes nothing on a gap
-- **WHEN** `dr-refactor --apply move-symbol …` hits a walker gap in any module it analyses
+- **WHEN** `trmv-refactor --apply move-symbol …` hits a walker gap in any module it analyses
 - **THEN** it exits 1 with `refactor.rope-walk` and every file of the project is unchanged
 
 #### Scenario: Silent gap refused
 - **WHEN** the walker finishes a module without error but leaves a string literal's tail uncovered
-- **THEN** `dr-refactor` exits 1 with `refactor.rope-walk` naming that literal's line
+- **THEN** `trmv-refactor` exits 1 with `refactor.rope-walk` naming that literal's line
 
 ### Requirement: A Python dry-run writes nothing
-The Python `dr-refactor` without `--apply` SHALL leave the project tree unchanged. In particular it SHALL NOT
+The Python `trmv-refactor` without `--apply` SHALL leave the project tree unchanged. In particular it SHALL NOT
 create rope's `.ropeproject` folder. With `--apply`, it SHALL change only the files the refactor rewrites,
 creates, moves or deletes, and the type-check baseline it realigns.
 
 #### Scenario: No rope folder after a dry-run
-- **WHEN** `dr-refactor rename --file pkg/a.py --symbol foo --new-name bar` runs on a project without `.ropeproject`
+- **WHEN** `trmv-refactor rename --file pkg/a.py --symbol foo --new-name bar` runs on a project without `.ropeproject`
 - **THEN** the project still has no `.ropeproject` and no file changes
 
 #### Scenario: No rope folder after an apply
@@ -462,12 +462,12 @@ creates, moves or deletes, and the type-check baseline it realigns.
 - **THEN** only the renamed files change and no `.ropeproject` is created
 
 ### Requirement: Python rope-walk compliance check
-The Python `dr-compliance` check `rope-walk` SHALL walk each file as `dr-refactor` would. For every file the
-walker cannot cover, it SHALL report one `compliance.rope-walk` finding at the line `dr-refactor` would name. A
+The Python `trmv-compliance` check `rope-walk` SHALL walk each file as `trmv-refactor` would. For every file the
+walker cannot cover, it SHALL report one `compliance.rope-walk` finding at the line `trmv-refactor` would name. A
 file that does not parse SHALL get only its `parse-error` finding.
 
 #### Scenario: Every formerly failing construct passes
-- **WHEN** `dr-compliance --select rope-walk` runs on files holding every construct of "Python refactors walk every source construct"
+- **WHEN** `trmv-compliance --select rope-walk` runs on files holding every construct of "Python refactors walk every source construct"
 - **THEN** nothing is printed and the exit code is 0
 
 #### Scenario: Uncoverable file listed
@@ -475,11 +475,11 @@ file that does not parse SHALL get only its `parse-error` finding.
 - **THEN** stdout is the single `compliance.rope-walk` line for `pkg/a.py` and line 3, and the exit code is 1
 
 #### Scenario: Parse error takes precedence
-- **WHEN** `dr-compliance` runs on a `.py` file with a syntax error
+- **WHEN** `trmv-compliance` runs on a `.py` file with a syntax error
 - **THEN** only its `parse-error` finding is printed
 
 ### Requirement: Refactors edit only at references
-In both languages, a file that `dr-refactor` touches SHALL change only within these permitted regions: the span of each
+In both languages, a file that `trmv-refactor` touches SHALL change only within these permitted regions: the span of each
 resolved reference to the renamed or moved module or symbol, including the name inside a forward-reference string and,
 for a Python field rename, the name inside a typed dict key or `model_dump` element and a keyword argument's name; the
 import item holding such a reference (its whole statement, or its whole line, when it is the statement's only item); one
@@ -585,12 +585,12 @@ the imports the moved code needs SHALL be added:
   after its docstring.
 
 When the moved code reads a name the source module binds only inside a block other than `if TYPE_CHECKING:` (a
-`try`, another `if`, a loop), `dr-refactor` SHALL exit 1 with the guarded-import finding naming the source file and
+`try`, another `if`, a loop), `trmv-refactor` SHALL exit 1 with the guarded-import finding naming the source file and
 that import's line, and SHALL write nothing. The leading import block is the first contiguous run of import
 statements, ending at the first non-import statement; in a file without imports it is the position after the module
 docstring and `__future__` imports. Edits SHALL be located by source character, so non-ASCII text before them on the
 line does not shift them. When an added import or the moved code would bind a name that already resolves to a
-different object in that scope, `dr-refactor` SHALL exit 1 with the name-conflict finding naming the file and line,
+different object in that scope, `trmv-refactor` SHALL exit 1 with the name-conflict finding naming the file and line,
 and SHALL write nothing.
 
 #### Scenario: Multi-name from-import split in place
@@ -786,7 +786,7 @@ and SHALL write nothing.
 - **THEN** that file is unchanged
 
 ### Requirement: Python renames include every reference basedpyright resolves
-For a Python `rename` of a symbol other than a module, `dr-refactor` SHALL edit every occurrence the run's occurrence
+For a Python `rename` of a symbol other than a module, `trmv-refactor` SHALL edit every occurrence the run's occurrence
 index resolves to a declaration the rename renames: every declaration of the renamed hierarchy by default, only the
 located one with `--no-in-hierarchy`; and every name, import or alias occurrence the checker resolves to no declaration
 that Python's scoping and import rules over the project's source folders resolve to one of them. These references SHALL
@@ -797,7 +797,7 @@ annotation (`self.x: T` or a class-body `x: T`), a return annotation or inferenc
 and `super().name(...)` calls. Every edit SHALL replace exactly the old name, located by source character in
 the file's text as read; positions SHALL be correct after non-ASCII and astral characters and with CRLF line endings.
 Edits SHALL NOT overlap unless identical; identical edits SHALL be merged. When a file changes between its read and
-the write, `dr-refactor` SHALL print the `refactor.file-changed` finding naming that file on stderr, write nothing and
+the write, `trmv-refactor` SHALL print the `refactor.file-changed` finding naming that file on stderr, write nothing and
 exit 1.
 
 A Python module rename SHALL move the module's file, or a package's directory, to the new name and rewrite, in every
@@ -826,7 +826,7 @@ pyright#11919 patch, reading the project's own configuration and finding the pro
 does. It SHALL run with its working directory outside the project, without the user site, without bytecode
 writing and with neither the working directory nor an inherited `PYTHONPATH` on the interpreter's path, so
 no target-repo code runs. A language server
-that cannot start, is not patched, fails or exits during the refactor SHALL make `dr-refactor` print the
+that cannot start, is not patched, fails or exits during the refactor SHALL make `trmv-refactor` print the
 `refactor.pyright-failed` finding on stderr followed by its cause, as "A failed checker's cause is printed" describes,
 write nothing and exit 1. With or without `--apply`, the language server SHALL create no file in the project.
 
@@ -923,7 +923,7 @@ write nothing and exit 1. With or without `--apply`, the language server SHALL c
 - **THEN** only the module's spelling changes and every line keeps its own ending
 
 ### Requirement: Python async definitions rename like sync ones
-The Python `dr-refactor rename` SHALL rename an `async def` method or function located by `--line`/`--col`,
+The Python `trmv-refactor rename` SHALL rename an `async def` method or function located by `--line`/`--col`,
 `--offset` or `--symbol`, at its definition or at a call: its definition, its overrides in the renamed hierarchy
 and every call it would rename for the same code without `async`.
 
@@ -943,7 +943,7 @@ and every call it would rename for the same code without `async`.
 
 ### Requirement: Python rename refusals are findings
 When an entry's location is not an identifier, names nothing Python's scoping rules or the checker resolve, or its new
-name is a Python keyword, the Python `dr-refactor` SHALL report the `refactor.cannot-rename` finding for that entry on
+name is a Python keyword, the Python `trmv-refactor` SHALL report the `refactor.cannot-rename` finding for that entry on
 stderr, write nothing and exit 1. No traceback or library message text SHALL be printed.
 
 #### Scenario: Location that is not an identifier
@@ -956,7 +956,7 @@ stderr, write nothing and exit 1. No traceback or library message text SHALL be 
 
 ### Requirement: Python field renames rewrite the keyword arguments of the owning class
 A keyed class SHALL be a `pydantic.BaseModel` subclass or a `TypedDict`. When the renamed symbol is a field of a keyed
-class K, the Python `dr-refactor` SHALL also rewrite the keyword `old=` in `cls(old=...)` where basedpyright types
+class K, the Python `trmv-refactor` SHALL also rewrite the keyword `old=` in `cls(old=...)` where basedpyright types
 `cls` as `type` of K or of a subclass, and in `X.model_construct(old=...)` where `X` resolves to K or a subclass and
 `model_construct` resolves to Pydantic's `BaseModel.model_construct`. Any other call SHALL be unchanged.
 
@@ -974,7 +974,7 @@ class K, the Python `dr-refactor` SHALL also rewrite the keyword `old=` in `cls(
 - **THEN** neither call changes
 
 ### Requirement: Python field renames rewrite typed dict keys
-When the renamed symbol is a field of a keyed class K, the Python `dr-refactor` SHALL rewrite the key `"old"` in a
+When the renamed symbol is a field of a keyed class K, the Python `trmv-refactor` SHALL rewrite the key `"old"` in a
 dict literal whose target is K or a subclass, at these targets:
 - the argument of `X.model_validate(...)`, of `X(**...)` and of `X.model_construct(**...)`, where `X` resolves to K
   or a subclass (including `cls` typed so);
@@ -997,7 +997,7 @@ of the renamed declarations. The target SHALL be left unchanged when its type is
 or a union other than one keyed class with `None`. Only a plain string literal whose source text between its quotes
 is exactly the old name SHALL be rewritten, and only those characters SHALL change. Keys of a field declaring
 `alias` or `validation_alias`, and of a model whose configuration sets an `alias_generator`, SHALL be unchanged.
-A rewritten key or keyword whose new name the same literal or call already holds SHALL make `dr-refactor` print the
+A rewritten key or keyword whose new name the same literal or call already holds SHALL make `trmv-refactor` print the
 `refactor.name-conflict` finding naming that file and line, write nothing and exit 1.
 
 #### Scenario: model_validate and unpacked dict
@@ -1055,7 +1055,7 @@ A rewritten key or keyword whose new name the same literal or call already holds
 
 ### Requirement: Python field renames refuse an unresolved owner chain
 When the renamed symbol is a field of a class whose chain of bases holds a base basedpyright cannot resolve, the
-Python `dr-refactor` SHALL print the `refactor.unresolved-base` finding naming the class, the file and the line of that
+Python `trmv-refactor` SHALL print the `refactor.unresolved-base` finding naming the class, the file and the line of that
 base, write nothing and exit 1. A rename of a class, function, method or module SHALL NOT be refused for this reason.
 
 #### Scenario: Pydantic not resolvable
@@ -1068,7 +1068,7 @@ base, write nothing and exit 1. A rename of a class, function, method or module 
 - **THEN** the rename proceeds and exits 0
 
 ### Requirement: Python --attr reports Unknown and Any receivers
-Python `dr-compliance --attr NAME` SHALL report, as the `attr-blindspot` check, every access `x.NAME` whose receiver
+Python `trmv-compliance --attr NAME` SHALL report, as the `attr-blindspot` check, every access `x.NAME` whose receiver
 basedpyright types as `Unknown`, `Any`, `Never`, or a union containing one of them, with the shared
 `compliance.attr-blindspot` finding; and, as the `string-blindspot` check, every Python string-named access (a
 string-member form of the language registry, a field-name read) whose member is the plain string literal `NAME` and
@@ -1080,7 +1080,7 @@ when it is or holds `Any`, else `Never`. Findings SHALL be one per access or cal
 The verdict at each position SHALL come from the same occurrence index a rename uses, so a site `--attr NAME`
 reports is exactly a blind spot a member rename of `NAME` reports there, with the same kind.
 basedpyright SHALL start only when `--attr` is given, with the working directory as its workspace, under the same
-conditions as for `dr-refactor`. A language server that cannot start, is not patched, fails or exits SHALL make the
+conditions as for `trmv-refactor`. A language server that cannot start, is not patched, fails or exits SHALL make the
 command print the `compliance.pyright-failed` finding on stderr and exit 2. The TypeScript twin's `--attr` output
 SHALL use the same templates with `{type}` `any`.
 
@@ -1144,7 +1144,7 @@ SHALL use the same templates with `{type}` `any`.
 - **THEN** that subscript is reported as `string-blindspot`, printed `m.model_fields['formula']`
 
 ### Requirement: Python parameter renames cover every parameter kind
-The Python `dr-refactor rename` SHALL rename a `def` or `async def` parameter of any kind (positional-only,
+The Python `trmv-refactor rename` SHALL rename a `def` or `async def` parameter of any kind (positional-only,
 positional-or-keyword, keyword-only, `*args`, `**kwargs`) located by `--line`/`--col`, `--offset` or `--symbol`, at
 its declaration, at a use in its function or at a `name=` keyword of a call. It SHALL rewrite each renamed
 declaration, every use of it in its function including nested scopes, and every `name=` keyword at a call the
@@ -1287,7 +1287,7 @@ implementation. Calls the checker resolves to any member SHALL have their `old=`
 A parameter rename SHALL be refused, as the requirement that renames keep every reference's binding defines, when a
 name in the signature or the body of a function of any renamed declaration would resolve to another declaration: a
 parameter or local of the new name, a read of a global or enclosing name of the new name, or a nested scope reading
-the renamed parameter while binding the new name. `dr-refactor` SHALL then print the `refactor.name-conflict` finding
+the renamed parameter while binding the new name. `trmv-refactor` SHALL then print the `refactor.name-conflict` finding
 naming the first such site by project-relative path and then by character offset, with its file and line, write
 nothing and exit 1. Attribute names (`x.new`), keywords of calls to other functions and a nested scope that binds the
 new name without reading the renamed parameter SHALL NOT count. A rename to the old name SHALL succeed as a rename
@@ -1344,7 +1344,7 @@ nothing and exit 1.
 - **THEN** stderr ends with the `refactor.cannot-rename` finding, the exit code is 1 and no file changes
 
 ### Requirement: Python explicit-any compliance check
-The Python `dr-compliance` check `explicit-any` SHALL report one `compliance.explicit-any` finding, at its line,
+The Python `trmv-compliance` check `explicit-any` SHALL report one `compliance.explicit-any` finding, at its line,
 for every reference in the file that resolves to `typing.Any` or `typing_extensions.Any`, in any expression:
 annotations at any depth, casts, type variable bounds, alias values, generic calls and class bases. Two
 references on one line SHALL give two findings. The finding SHALL use the language's spellings of the any type
@@ -1437,11 +1437,11 @@ does not parse SHALL get only its `parse-error` finding.
 - **THEN** the third-party and unresolvable `Any` are not reported, and `from typing import Any` still is
 
 #### Scenario: Parse error only
-- **WHEN** `dr-compliance` runs on a `.py` file that uses `Any` and has a syntax error
+- **WHEN** `trmv-compliance` runs on a `.py` file that uses `Any` and has a syntax error
 - **THEN** only its `parse-error` finding is printed
 
 ### Requirement: Member renames refuse on untyped receivers
-A member rename SHALL be a `dr-refactor rename` whose symbol is declared in a class body: in Python a method (sync
+A member rename SHALL be a `trmv-refactor rename` whose symbol is declared in a class body: in Python a method (sync
 or async), property, class attribute, instance attribute (`self.x`) or field; in TypeScript a property, method or
 accessor of a class, interface or type literal. A blind spot of the old name OLD SHALL be, in a source file of the
 rename's language under the project:
@@ -1460,7 +1460,7 @@ attribute access, `compliance.string-blindspot` or `compliance.string-blindspot-
 `refactor.unresolved-target` for a dotted target), then `refactor.blindspots`, print
 nothing on stdout, write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` the same lines
 SHALL be printed on stderr and the rename SHALL proceed. The set of blind spots SHALL equal what
-`dr-compliance --select attr-blindspot,string-blindspot --attr OLD <project>` reports, the
+`trmv-compliance --select attr-blindspot,string-blindspot --attr OLD <project>` reports, the
 project directory expanded as the routing rules expand a directory (Python's `excluded_dirs` naming virtualenv,
 version-control and tool-cache directories), plus the unresolved targets and the mixed targets.
 
@@ -1503,12 +1503,12 @@ version-control and tool-cache directories), plus the unresolved targets and the
 
 #### Scenario: TypeScript element access on an any receiver
 - **WHEN** property `Store.getModel` is renamed and a file holds `function g(o: any) { return o['getModel']('a') }`
-- **THEN** the rename refuses with that site's `string-blindspot` line, and `dr-compliance --select string-blindspot
+- **THEN** the rename refuses with that site's `string-blindspot` line, and `trmv-compliance --select string-blindspot
   --attr getModel` reports the same line
 
 #### Scenario: Virtualenv skipped by both
 - **WHEN** a Python member rename's project holds `.venv/lib/x.py` with an untyped `o.OLD`
-- **THEN** neither the rename nor `dr-compliance --select attr-blindspot --attr OLD <project>` reports it
+- **THEN** neither the rename nor `trmv-compliance --select attr-blindspot --attr OLD <project>` reports it
 
 #### Scenario: String-named access with a default
 - **WHEN** attribute `Ds.columns` is renamed with `--allow-blindspots` and a module holds `def a(x: Any): return
@@ -1707,7 +1707,7 @@ with or without `--docs`.
 - **THEN** stderr holds that site's `refactor.mixed-target` line, the exit code is 1 and no file changes
 
 ### Requirement: --keep leaves sites untouched
-`dr-refactor rename` SHALL accept `--keep PATH[:LINE]` (repeatable). A relative PATH SHALL be resolved against
+`trmv-refactor rename` SHALL accept `--keep PATH[:LINE]` (repeatable). A relative PATH SHALL be resolved against
 `--project` to a real path under the project, in every check and use; a directory SHALL match the files under it by whole path components.
 Every edit the rename would make on a kept line, in a kept file or under a kept directory SHALL be dropped,
 whichever rule produced it, and a blind spot there SHALL NOT block the rename. A `--keep` naming no existing file,
@@ -1791,16 +1791,16 @@ once, over every entry's final edits and moves.
 - **THEN** no file under `pkg/sql/` moves or changes, no `refactor.keep-unneeded` is printed, and the exit code is 0
 
 #### Scenario: Keep relative to the project
-- **WHEN** `dr-refactor --project proj rename ... --keep pkg/a.py:7` runs from the directory holding `proj`, where
+- **WHEN** `trmv-refactor --project proj rename ... --keep pkg/a.py:7` runs from the directory holding `proj`, where
   line 7 of `proj/pkg/a.py` holds a reference
 - **THEN** that line is unchanged, every other reference is renamed and the exit code is 0; an absolute path naming
   the same line keeps it too
 
 ### Requirement: --docs rewrites mentions in comments, docstrings, strings and prose files
-`dr-refactor rename --docs` (any symbol other than a module, both languages) SHALL scan the comments and string
+`trmv-refactor rename --docs` (any symbol other than a module, both languages) SHALL scan the comments and string
 literals (Python docstrings and f-string literal parts; TypeScript JSDoc and template-literal text) of every source
 file of the rename's language under the project, and the files `config` lists for the project (tracked and
-untracked-not-ignored; none outside git) whose extension is among `dr-refactor`'s prose extensions in the shared
+untracked-not-ignored; none outside git) whose extension is among `trmv-refactor`'s prose extensions in the shared
 contract (`.md`, `.rst`, `.txt`). A mention SHALL be an occurrence of OLD not adjacent to an identifier character.
 
 Every mention SHALL be resolved once over all entries of the run, to exactly one entry, whose new name it takes, or
@@ -1936,7 +1936,7 @@ not the member or target argument of a string-member form or patch target. Listi
   exit code is 0
 
 ### Requirement: Symbols are located by their path in a file
-`dr-refactor rename`, `retarget` and `move-symbol` SHALL accept `--symbol Q`, the path of a declaration inside
+`trmv-refactor rename`, `retarget` and `move-symbol` SHALL accept `--symbol Q`, the path of a declaration inside
 `--file`, in both languages. Q SHALL be segments joined by `.`, where `<locals>` steps into a function's body, a
 trailing `(param)` names a parameter of the function the path names, and a trailing `['value']` or `["value"]`
 names the member `value` of a string-literal type in the annotation or alias body of the declaration the path
@@ -1997,7 +1997,7 @@ candidate's `path:line`. `move-symbol --symbol` SHALL accept only a top-level de
 - **THEN** each locates that declaration, through either invoking twin
 
 ### Requirement: Rename maps apply many renames as one
-`dr-refactor rename-map MAP` SHALL read MAP (a path relative to the working directory) as a YAML list of entries
+`trmv-refactor rename-map MAP` SHALL read MAP (a path relative to the working directory) as a YAML list of entries
 valid against the shared rename-map schema: either `file` relative to `--project`, exactly one locator (`symbol`,
 `line` with an optional `col`, or `offset`), and exactly one of `new_name` or `retarget` (a `symbol` in the same file);
 or a module entry, `module` (a source file relative to `--project`) and `new_name`, and nothing else. An
@@ -2254,7 +2254,7 @@ one-entry map `{module: F, new_name: N}`, in either language.
 - **THEN** stderr ends with `refactor.map-duplicate` naming entries 1 and 2 and the exit code is 2
 
 ### Requirement: An apply writes every file or none
-`dr-refactor --apply` SHALL re-check, immediately before writing, that no file it writes changed since it was read,
+`trmv-refactor --apply` SHALL re-check, immediately before writing, that no file it writes changed since it was read,
 and SHALL write each file through a temporary file in the same directory renamed over it. When any write fails, the
 files already written SHALL be restored, a finding SHALL be printed and the exit code SHALL be 1. When restoring a
 file fails, the other restorations SHALL still be attempted and `refactor.rollback-failed` SHALL name every path left
@@ -2265,7 +2265,7 @@ changed; the exit code SHALL be 1.
 - **THEN** the first two files hold their original bytes and the exit code is 1
 
 ### Requirement: Refactors keep the type-check baseline aligned
-Every `dr-refactor` subcommand SHALL keep the baseline of each language it edits aligned, when that language's
+Every `trmv-refactor` subcommand SHALL keep the baseline of each language it edits aligned, when that language's
 `commands.typecheck` entry is set and its `baseline_file` exists at the repo root and lists a file the refactor
 affects. A baselined diagnostic that the refactor moves, by an edit on its line, a moved file or a moved
 declaration, SHALL stay baselined; no diagnostic SHALL become baselined that was not. The baseline SHALL appear in
@@ -2282,7 +2282,7 @@ text and an end before it, and an empty range SHALL map both ends as its start.
   of the refactor, so a command that cannot run refuses before any reference search.
 - TypeScript (`.tsc-baseline.json`): the before and after diagnostics SHALL be the pre-emit diagnostics, from the
   bundled language services of every project holding the file, of every file the baseline lists, before and after
-  the edits applied in memory, keyed as `dr-typecheck` keys tsc's output. A baselined key whose instances all map to
+  the edits applied in memory, keyed as `trmv-typecheck` keys tsc's output. A baselined key whose instances all map to
   one new key SHALL move its count there.
 
 A diagnostic whose range cannot be mapped, or a TypeScript key whose instances map to different keys while only
@@ -2293,7 +2293,7 @@ followed by the checker's cause, and write nothing.
 #### Scenario: Rename shifts baselined columns
 - **WHEN** a line holds a baselined `reportArgumentType` error after a call of `get_model`, and `get_model` is
   renamed to `load` with `--apply`
-- **THEN** that entry's columns shift by the length difference, every other entry is unchanged, and `dr-typecheck`
+- **THEN** that entry's columns shift by the length difference, every other entry is unchanged, and `trmv-typecheck`
   passes afterwards
 
 #### Scenario: Dry-run shows the baseline
@@ -2303,7 +2303,7 @@ followed by the checker's cause, and write nothing.
 #### Scenario: Matching follows basedpyright
 - **WHEN** a file's baseline holds two identical-shaped entries, a stale entry, and an entry for a diagnostic below a
   newly unbaselined one, and a rename edits those lines
-- **THEN** exactly the entries basedpyright matched are rewritten, and `dr-typecheck` reports the same new errors
+- **THEN** exactly the entries basedpyright matched are rewritten, and `trmv-typecheck` reports the same new errors
   as before the rename
 
 #### Scenario: Configured command with a project flag
@@ -2312,7 +2312,7 @@ followed by the checker's cause, and write nothing.
 
 #### Scenario: Moved module
 - **WHEN** `move-module` moves `pkg/a.py`, which has baseline entries, into `pkg/sub/`
-- **THEN** those entries are listed under `./pkg/sub/a.py` and `dr-typecheck` passes
+- **THEN** those entries are listed under `./pkg/sub/a.py` and `trmv-typecheck` passes
 
 #### Scenario: Moved declaration
 - **WHEN** `move-symbol` moves a function with a baselined error into another file that has entries of its own
@@ -2470,17 +2470,17 @@ boundaries (a run of capitals is one word), compared case-insensitively, the las
 - **WHEN** the same rename runs without `--docs`
 - **THEN** no compound name is listed
 
-### Requirement: dr-compliance --attr takes several names
-`dr-compliance --attr` SHALL be repeatable. One scan SHALL report the blind spots of every given name, sorted by
+### Requirement: trmv-compliance --attr takes several names
+`trmv-compliance --attr` SHALL be repeatable. One scan SHALL report the blind spots of every given name, sorted by
 path, line, column and then name, in both languages.
 
 #### Scenario: Two names
-- **WHEN** `dr-compliance --select attr-blindspot --attr get_model --attr save_model tests` runs where untyped
+- **WHEN** `trmv-compliance --select attr-blindspot --attr get_model --attr save_model tests` runs where untyped
   receivers access both
 - **THEN** both names' blind spots are reported in one sorted block and the exit code is 1
 
-### Requirement: dr-mock-lint compares with a base branch
-`dr-mock-lint` SHALL be a parsed command: positional paths and `--base BRANCH`; `--help` SHALL print its help and
+### Requirement: trmv-mock-lint compares with a base branch
+`trmv-mock-lint` SHALL be a parsed command: positional paths and `--base BRANCH`; `--help` SHALL print its help and
 exit 0. With `--base`, it SHALL compare with `origin/BRANCH` after the shared best-effort fetch, as
 `la-affected-tests` does, exiting 2 only when `origin/BRANCH` does not resolve. It SHALL lint the given files as they
 are and the same files at the base, read from git without checking anything out (paths mapped through git's rename
@@ -2488,7 +2488,7 @@ detection), and SHALL print only the findings whose count, keyed by path, templa
 line, exceeds the base's. The exit code SHALL be 1 iff it prints a finding.
 
 #### Scenario: Help
-- **WHEN** `dr-mock-lint --help` runs through either twin
+- **WHEN** `trmv-mock-lint --help` runs through either twin
 - **THEN** it prints the help and exits 0
 
 #### Scenario: Only new findings
@@ -2671,7 +2671,7 @@ member is declared outside the project; it SHALL write nothing and exit 1.
 - **THEN** the map is refused naming the line of `C.a`
 
 ### Requirement: Retarget rewrites references to an alias and keeps every name bound
-`dr-refactor retarget --file F --symbol ALIAS --target TARGET` (and a map entry with `retarget`) SHALL rewrite every
+`trmv-refactor retarget --file F --symbol ALIAS --target TARGET` (and a map entry with `retarget`) SHALL rewrite every
 reference the rename of ALIAS to TARGET's name would rewrite, every rename rule included, except the edits at
 ALIAS's own declarations and at re-export sites; ALIAS SHALL stay declared and unchanged. Checks that the new name is
 already used SHALL NOT apply.
@@ -2810,8 +2810,8 @@ SHALL NOT be added.
   `Facade`, and one importer uses `Flight` only as a type while another constructs `new Flight()`
 - **THEN** the first imports `Facade` type-only and the second as a value, each from the home module
 
-### Requirement: dr-refactor --timings prints each phase's wall time
-`dr-refactor --timings` SHALL, for every subcommand and after all other output, print on stderr one
+### Requirement: trmv-refactor --timings prints each phase's wall time
+`trmv-refactor --timings` SHALL, for every subcommand and after all other output, print on stderr one
 `refactor.timing` line per phase whose work ran at least once, in the order of the shared phase list (`load`,
 `resolve`, `references`, `rules`, `conflicts`, `blindspot-scan`, `literal-scan`, `literal-probe`, `baseline`,
 `write`), then one for `total`. A phase's time SHALL exclude the phases nested in it, and its repeated runs SHALL add
@@ -2827,17 +2827,17 @@ twin missing) SHALL print only `total`. Without `--timings`, stdout, stderr and 
 - **THEN** their lines read `timing: <phase> 1.23s` and `timing: <phase> 0.00s`
 
 #### Scenario: Python Literal rename
-- **WHEN** `dr-refactor --timings rename --file m.py --symbol "Kind['a']" --new-name b` runs
+- **WHEN** `trmv-refactor --timings rename --file m.py --symbol "Kind['a']" --new-name b` runs
 - **THEN** stdout is unchanged, and stderr ends with timing lines in list order that include `literal-scan` and
   `literal-probe`, then `total`
 
 #### Scenario: TypeScript rename
-- **WHEN** `dr-refactor --timings rename --file src/a.ts --symbol foo --new-name bar` runs
+- **WHEN** `trmv-refactor --timings rename --file src/a.ts --symbol foo --new-name bar` runs
 - **THEN** stdout is unchanged, and stderr ends with timing lines in list order, none of them a `literal-` phase,
   then `total`
 
 #### Scenario: Conflict checks timed on their own
-- **WHEN** `dr-refactor --timings rename-map map.yaml` runs a map that refuses nothing, in either twin
+- **WHEN** `trmv-refactor --timings rename-map map.yaml` runs a map that refuses nothing, in either twin
 - **THEN** stderr holds a `conflicts` timing line after the `rules` line and before any `baseline` line
 
 #### Scenario: Refusal still timed
@@ -2845,19 +2845,19 @@ twin missing) SHALL print only `total`. Without `--timings`, stdout, stderr and 
 - **THEN** the exit code is 1, and the timing lines follow the refusal on stderr
 
 #### Scenario: Forwarded run
-- **WHEN** the npm twin runs `dr-refactor --timings rename --file m.py --symbol f --new-name g`
+- **WHEN** the npm twin runs `trmv-refactor --timings rename --file m.py --symbol f --new-name g`
 - **THEN** stderr holds the Python twin's timing lines once, and no line from the npm twin
 
 #### Scenario: Exit before any phase
-- **WHEN** `dr-refactor --timings rename-map map.yaml` runs on a map mixing `.py` and `.ts` entries
+- **WHEN** `trmv-refactor --timings rename-map map.yaml` runs on a map mixing `.py` and `.ts` entries
 - **THEN** the map error is printed, then only the `total` timing line, and the exit code is 2
 
 #### Scenario: Option absent
-- **WHEN** any `dr-refactor` case of the corpus runs without `--timings`
+- **WHEN** any `trmv-refactor` case of the corpus runs without `--timings`
 - **THEN** its output equals its golden
 
 ### Requirement: Refactors run in announced phases and report their progress
-Every `dr-refactor` subcommand SHALL run in the phases `resolve`, `checks`, `references`, `rules`, `conflicts`,
+Every `trmv-refactor` subcommand SHALL run in the phases `resolve`, `checks`, `references`, `rules`, `conflicts`,
 `baseline` and `write`, in that order, and SHALL print `refactor.progress-phase` on stderr when each phase starts. A
 phase that does not run SHALL print nothing: `rules` runs for `rename`, `retarget` and `rename-map` unless every
 entry is a module rename; `conflicts` runs for `rename`, `retarget` and `rename-map` when the run reaches the checks
@@ -2890,7 +2890,7 @@ report.
 Progress lines SHALL pass through forwarding to the other twin unchanged and in order.
 
 #### Scenario: Phases of a clean map
-- **WHEN** `dr-refactor rename-map map.yaml` runs a two-entry map that refuses nothing, without `--apply`, in a repo
+- **WHEN** `trmv-refactor rename-map map.yaml` runs a two-entry map that refuses nothing, without `--apply`, in a repo
   without a baseline file
 - **THEN** stderr is `[resolve]`, `[checks]`, `[references]`, one `[references n/2]` line per entry, `[rules]`, one
   `clean` line per old-name group and `[conflicts]`, and stdout is the headers, the diffs and the dry-run footer
@@ -2985,7 +2985,7 @@ The `checks` phase SHALL then run, before any reference search:
   when a `--keep` covers the line of either declaration, or when the resolved entries do not decide whether the
   name is freed. Conflicts through inheritance, imports or references SHALL be found in `conflicts`;
 - Python: for a move, every candidate file (a Python source whose text holds the moved name or module's name) SHALL be
-  walked as `dr-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
+  walked as `trmv-compliance --select rope-walk` walks it, and each gap reported as `refactor.rope-walk`;
 - Python: the language server SHALL start for `rename`, `retarget` and `rename-map` unless every entry is a module
   rename, or its occurrence index is cached and no entry renames a `Literal` member, and when the baseline phase will run, the configured checker SHALL run once on one source of the refactor; a failure SHALL be reported with its
   cause;
@@ -3118,7 +3118,7 @@ nothing, and exit with the highest exit code of its findings.
 - **THEN** stderr holds a `[references]` line: the `checks` phase refuses nothing for that pair
 
 #### Scenario: Sites from outside the project
-- **WHEN** `dr-refactor --project proj rename-map ...` runs from the directory holding `proj` with
+- **WHEN** `trmv-refactor --project proj rename-map ...` runs from the directory holding `proj` with
   `--keep pkg/a.py:7`, `--with pkg/b.py:5` or `--without pkg/b.py:5`, each a path under `proj`
 - **THEN** each site is found; the same run with `--keep proj/pkg/a.py:7` prints `refactor.site-missing`, exit 2
 
@@ -3207,7 +3207,7 @@ SHALL print their findings as they are.
   one-entry map prints it
 
 ### Requirement: --fail-fast stops at the first refusal
-`dr-refactor rename`, `retarget` and `rename-map` SHALL accept `--fail-fast`. With it, the run SHALL stop at the first
+`trmv-refactor rename`, `retarget` and `rename-map` SHALL accept `--fail-fast`. With it, the run SHALL stop at the first
 refusal found after `checks`: the entry or group in progress SHALL finish its phase and print its line, no later one
 SHALL start that phase and no later phase SHALL run. The final report SHALL list what was found and not yet printed, without site
 resolution (no exact site finding and no `refactor.keep-unneeded`). Without it, every entry SHALL be computed and
@@ -3247,8 +3247,8 @@ print `refactor.baseline-failed` with no cause.
   indented by two spaces, the exit code is 1 and nothing is written
 
 ### Requirement: Python refactors resolve every occurrence from one occurrence index
-A Python `dr-refactor` `rename`, `rename-map` or `retarget` of symbols other than modules, and Python
-`dr-compliance --attr`, SHALL resolve every occurrence of the old names from one occurrence index of the run: for each
+A Python `trmv-refactor` `rename`, `rename-map` or `retarget` of symbols other than modules, and Python
+`trmv-compliance --attr`, SHALL resolve every occurrence of the old names from one occurrence index of the run: for each
 occurrence of an old name in the candidate files (the project's Python sources whose text holds an old name, or a
 string constant equal to one under any escaped spelling), its kind (name, member access, keyword argument, dict-literal
 key, string-member name, dotted patch target, `Literal`-typed string, forward-reference string, `__all__` entry, import
@@ -3267,8 +3267,8 @@ SHALL be printed with the leftovers, sorted by path, line and column, and a `--k
 line.
 
 The export SHALL run under the same verification as la's pyright#11919 patch: a basedpyright version it is not
-verified for, or a hook that does not match the bundle exactly, SHALL make `dr-refactor` print the
-`refactor.pyright-failed` finding on stderr, write nothing and exit 1, and `dr-compliance --attr` print
+verified for, or a hook that does not match the bundle exactly, SHALL make `trmv-refactor` print the
+`refactor.pyright-failed` finding on stderr, write nothing and exit 1, and `trmv-compliance --attr` print
 `compliance.pyright-failed` and exit 2. An exported span that does not slice to the old name's spelling in the file as
 read SHALL be refused the same way. The language server SHALL start only when the run needs it, and at most once per
 run; a run whose every entry is a module rename, `move-symbol` and `move-module` SHALL NOT start it.
@@ -3337,7 +3337,7 @@ run; a run whose every entry is a module rename, `move-symbol` and `move-module`
 - **THEN** no language server starts
 
 ### Requirement: The Python occurrence index is cached between runs
-`dr-refactor` and `dr-compliance --attr` SHALL reuse an earlier run's occurrence index exactly when nothing that can
+`trmv-refactor` and `trmv-compliance --attr` SHALL reuse an earlier run's occurrence index exactly when nothing that can
 change it has changed: the content of every project source file and the set of those files, the checker's effective
 configuration, the interpreter and its search paths, the installed packages and stubs, the basedpyright and export
 versions, and the request (the old names, the candidate files and every queried position). Otherwise they SHALL
@@ -3382,7 +3382,7 @@ diff. Blind spots SHALL be reported, refused and let through by `--allow-blindsp
 - **THEN** `o.run()` is unchanged and the blind spot is listed on stderr
 
 ### Requirement: Python renames reach names bound by tuple targets
-The Python `dr-refactor rename` and `rename-map` SHALL rename a name bound by a tuple target, located by `--symbol`
+The Python `trmv-refactor rename` and `rename-map` SHALL rename a name bound by a tuple target, located by `--symbol`
 or by location at any of its occurrences: a target of an assignment in a function, at module level or in a class
 body, a starred target and a target nested in an inner tuple included, or a target of a comprehension's `for`
 clause. They SHALL rewrite every reference bound to that declaration. A same-spelled binding in a nested scope (an
@@ -3550,7 +3550,7 @@ namespace import's member, SHALL be left.
 - **THEN** the string reads `../src/lib/api.js`
 
 ### Requirement: Python field renames rewrite field-name strings
-When the renamed symbol is a field of a `pydantic.BaseModel` subclass, the Python `dr-refactor` SHALL rewrite each
+When the renamed symbol is a field of a `pydantic.BaseModel` subclass, the Python `trmv-refactor` SHALL rewrite each
 plain string literal whose text between its quotes is exactly OLD:
 - among the positional arguments of a decorator that resolves to Pydantic's `field_validator` or `field_serializer`
   and decorates a method of a class C, when looking OLD up in C's method resolution order lands on a renamed
@@ -3569,7 +3569,7 @@ A decorator argument on a class whose lookup finds no declaration of OLD SHALL b
 equal string is. A read form whose lookup lands on a renamed declaration and on one the rename leaves unchanged
 SHALL be a `refactor.mixed-target` blind spot; one whose receiver the checker types as `Unknown`, `Any` or a union
 holding either SHALL be a `string-blindspot`. A decorator that already holds NEW among its positional arguments
-SHALL make `dr-refactor` print `refactor.name-conflict` naming that file and line, write nothing and exit 1.
+SHALL make `trmv-refactor` print `refactor.name-conflict` naming that file and line, write nothing and exit 1.
 
 #### Scenario: Validator on the declaring class
 - **WHEN** field `Ds.columns` is renamed to `fields` and `Ds` holds `@field_validator("columns")` on a classmethod
@@ -3623,12 +3623,12 @@ SHALL make `dr-refactor` print `refactor.name-conflict` naming that file and lin
 - **THEN** stderr ends with `refactor.name-conflict` naming that line, the exit code is 1 and no file changes
 
 ### Requirement: Python attribute renames rewrite class-body name tuples
-When the renamed symbol is an attribute, the Python `dr-refactor` SHALL rewrite each plain string literal exactly
+When the renamed symbol is an attribute, the Python `trmv-refactor` SHALL rewrite each plain string literal exactly
 OLD in the value assigned to `__slots__` or `__match_args__` in the body of a class C, when looking OLD up in C's
 method resolution order lands on a renamed declaration. The value SHALL be a tuple, list or set display whose
 element the string is; for `__slots__` also the string itself or a dict display whose key it is. A string anywhere
 else in the value (a concatenation, a call) SHALL be unchanged and listed as any other equal string is. A value that
-already holds NEW SHALL make `dr-refactor` print `refactor.name-conflict` naming that file and line, write nothing
+already holds NEW SHALL make `trmv-refactor` print `refactor.name-conflict` naming that file and line, write nothing
 and exit 1.
 
 #### Scenario: Slots tuple
@@ -3846,14 +3846,14 @@ passes further arguments; `RECEIVER['NAME']` for an element access; and the read
 (`RECEIVER.model_fields['NAME']`, `RECEIVER.model_fields.get('NAME')`, `'NAME' in RECEIVER.model_fields`).
 
 #### Scenario: Python call forms
-- **WHEN** `dr-compliance --attr columns` runs on a file holding, with `x: Any`, `getattr(x, "columns")`,
+- **WHEN** `trmv-compliance --attr columns` runs on a file holding, with `x: Any`, `getattr(x, "columns")`,
   `setattr(x, "columns", 1)` and `patch.object(x, "columns")`
 - **THEN** stdout holds `string-blindspot: getattr(x, 'columns') — x is Any, so a rename of .columns is
   unverifiable`, `string-blindspot: setattr(x, 'columns', …) — …` and `string-blindspot: patch.object(x, 'columns')
   — …`, each after its path and line
 
 #### Scenario: TypeScript forms
-- **WHEN** `dr-compliance --attr columns` runs on a file holding, with `x: any`, `Reflect.get(x, 'columns')` and
+- **WHEN** `trmv-compliance --attr columns` runs on a file holding, with `x: any`, `Reflect.get(x, 'columns')` and
   `x["columns"]`
 - **THEN** stdout holds `string-blindspot: Reflect.get(x, 'columns') — x is any, so a rename of .columns is
   unverifiable` and `string-blindspot: x['columns'] — …`
@@ -3863,7 +3863,7 @@ passes further arguments; `RECEIVER['NAME']` for an element access; and the read
 - **THEN** `{site}` and `{receiver}` print it with its whitespace collapsed
 
 ### Requirement: --docs-pick rewrites the listed mentions of a line
-`dr-refactor rename` and `rename-map` SHALL accept `--docs-pick PATH:LINE[=ENTRY]` (repeatable, both languages).
+`trmv-refactor rename` and `rename-map` SHALL accept `--docs-pick PATH:LINE[=ENTRY]` (repeatable, both languages).
 PATH SHALL be resolved as `--keep` resolves it. ENTRY SHALL be a 1-based entry index of the map; a `rename` is
 entry 1. The selectable site SHALL be the line: a pick SHALL act on every listed mention on that line (a
 `refactor.leftover` with `{where}` `comment`, `docstring`, `string` or `prose`), in source and prose files alike.
@@ -3938,7 +3938,7 @@ Every such refusal of a run SHALL be reported, in the order of the picks.
 - **THEN** line 7 is unchanged, no `refactor.pick-unmatched` is printed and the exit code is 0
 
 ### Requirement: --keep-literal keeps the literals holding a key
-`dr-refactor rename` and `rename-map` SHALL accept `--keep-literal KEY` (repeatable, both languages). A matching
+`trmv-refactor rename` and `rename-map` SHALL accept `--keep-literal KEY` (repeatable, both languages). A matching
 literal SHALL be a Python dict display holding a key that is a plain string literal whose source text between its
 quotes is exactly KEY, or a TypeScript object literal holding a property named KEY by an identifier, a string
 literal or a shorthand property. A computed key, a `**` unpacking and a spread member SHALL NOT make a literal match.
@@ -4055,7 +4055,7 @@ A rename of a member, a parameter, a local or a module SHALL ignore the patterns
 #### Scenario: Invalid pattern
 - **WHEN** the config holds a pattern with no capturing group, with two, with a named group or with a lookahead
 - **THEN** every command loading the config reports a configuration error naming `refactor.string_forms` and
-  that pattern, as it reports any other configuration error; `dr-refactor` exits 2
+  that pattern, as it reports any other configuration error; `trmv-refactor` exits 2
 
 ### Requirement: Word tables describe a vocabulary rename
 A word table SHALL be a YAML mapping valid against the shared word-table schema: `words`, a non-empty list of
@@ -4114,7 +4114,7 @@ A carve-out SHALL match a declaration for a word W when W is among its `words`, 
 - **THEN** the first three match and the last two do not
 
 ### Requirement: generate-map writes a rename map from a word table
-`dr-refactor generate-map TABLE` (TABLE relative to the working directory) SHALL print on stdout a rename map for the
+`trmv-refactor generate-map TABLE` (TABLE relative to the working directory) SHALL print on stdout a rename map for the
 word table. Its language SHALL be `--language`, else the one registered language with source files under the
 project; a project holding source files of more than one language without `--language` SHALL exit 2 with
 `refactor.generate-language` naming them in registry order. The map SHALL be generated by that language's twin,
@@ -4455,7 +4455,7 @@ the carrier is unresolved, any sink is unresolved, or the carrier calls itself t
 when any sink is mixed, or some sinks are renamed and some other; else *renamed* when it has a sink and every sink is
 renamed; else *other*.
 
-For a carrier `F` whose verdict is renamed, `dr-refactor` SHALL rewrite the keyword `old=` of each call the checker
+For a carrier `F` whose verdict is renamed, `trmv-refactor` SHALL rewrite the keyword `old=` of each call the checker
 resolves to `F` where no parameter of `F` can bind `old` as a keyword, the constant key `"old"` of a dict literal unpacked into
 such a call (`F(**{"old": v})`), and each key-form string `"old"` in `F`. For a verdict of other, nothing of `F` SHALL
 change or be listed. The rewrites SHALL obey the rules of typed dict keys for aliased fields, alias generators, plain
@@ -4540,7 +4540,7 @@ write nothing and exit 1, with or without `--apply`. With `--allow-blindspots` t
 include` every unlinked keyword and key SHALL also be rewritten, and blind spots SHALL be reported, refused and let
 through as without it. `{names}` of `refactor.blindspots` SHALL list each old name with a blind spot once, a member's
 as `.old` and an unlinked keyword's as `old=`, joined by `, `. A rename of a function, class, module, local or
-non-field member SHALL NOT be scanned for unlinked keywords, and `dr-compliance` SHALL NOT report them.
+non-field member SHALL NOT be scanned for unlinked keywords, and `trmv-compliance` SHALL NOT report them.
 
 #### Scenario: Signature-erasing decorator
 - **WHEN** `@functools.lru_cache def cached(models: int) -> int` has `models` renamed, the checker types `cached`'s
@@ -4865,7 +4865,7 @@ A refused refactor SHALL write nothing. The comparison SHALL start no language s
 - **THEN** it exits 1 with the unparsable finding naming the stub's path, and no file changes
 
 #### Scenario: Existing refactors unchanged
-- **WHEN** any Python `dr-refactor` conformance case that existed before this requirement runs, other than the
+- **WHEN** any Python `trmv-refactor` conformance case that existed before this requirement runs, other than the
   cases the scenarios above refuse
 - **THEN** its stdout, stderr, exit code and written files are unchanged
 

@@ -1,4 +1,4 @@
-"""Each package's built wheel and sdist carry its README and the root LICENSE, its contract, and dr's pyright preloads."""
+"""Each package's built wheel and sdist carry its README and the root LICENSE, its contract, and trmv's pyright preloads."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from deterministic_refactor.config import current_format
-from deterministic_refactor.contract import compute_hash
+from trmv.config import current_format
+from trmv.contract import compute_hash
 
 
 def _repo_root() -> Path:
@@ -24,9 +24,9 @@ REPO_ROOT = _repo_root()
 WORKSPACE = REPO_ROOT / "python"
 FIXTURES = REPO_ROOT / "conformance" / "fixtures"
 CLEAN = '"""Clean."""\n\nimport os\n\n\ndef f(x: int) -> str:\n    return os.sep * x\n'
-PACKAGES = {"dr": "deterministic-refactor", "la": "living-architecture"}
-# The README each package's listing carries: dr has its own, la the repo's.
-READMES = {"dr": WORKSPACE / "dr" / "README.md", "la": REPO_ROOT / "README.md"}
+PACKAGES = {"trmv": "type-rename-move", "la": "living-architecture"}
+# The README each package's listing carries: trmv has its own, la the repo's.
+READMES = {"trmv": WORKSPACE / "trmv" / "README.md", "la": REPO_ROOT / "README.md"}
 
 
 @pytest.fixture(scope="module")
@@ -94,7 +94,7 @@ def _materialize(fixture: str, dest: Path) -> Path:
 
 @pytest.mark.parametrize("kind", ["wheel", "sdist"])
 def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_gh):
-    bin_dir = _install(tmp_path, artifacts["dr"][kind], artifacts["la"][kind])
+    bin_dir = _install(tmp_path, artifacts["trmv"][kind], artifacts["la"][kind])
     work = tmp_path / "work"
     work.mkdir()
     (work / "a.py").write_text(CLEAN, encoding="utf-8")
@@ -119,19 +119,19 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
                               capture_output=True, text=True, timeout=120, check=False)
 
     expectations = [
-        (("dr-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared' / 'dr')}\n"),
+        (("trmv-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared' / 'trmv')}\n"),
         (("la-doctor", "--contract-hash"), 0, f"{compute_hash(REPO_ROOT / 'shared' / 'la')}\n"),
-        (("dr-config", "show"), 0, None),
+        (("trmv-config", "show"), 0, None),
         (("la-config", "show"), 0, None),
         (("la-arch-check", "--root", str(_materialize("arch-ok", tmp_path / "arch"))), 0, "arch_check: OK\n"),
         (("la-arch-diagrams", "--root", str(_materialize("arch-diagrams", tmp_path / "diagrams"))), 0, ""),
         (("la-check-conventions", "--file", "a.py"), 0, None),
         (("la-count-comments", "a.py"), 0, None),
-        (("dr-typecheck",), 2, ""),
+        (("trmv-typecheck",), 2, ""),
         (("la-typecheck",), 2, ""),
-        (("dr-compliance", "a.py"), 0, ""),
-        (("dr-mock-lint", "a.py"), 0, ""),
-        (("dr-refactor", "--help"), 0, None),
+        (("trmv-compliance", "a.py"), 0, ""),
+        (("trmv-mock-lint", "a.py"), 0, ""),
+        (("trmv-refactor", "--help"), 0, None),
         (("la-reply-to-pr-thread", "--comment-id", "9", "--pr", "3", "--repo", "o/r"), 0, "u\n"),
         (("la-wait-for-reviews", "7", "--repo", "o/r"), 0, None),
         (("la-pr-reviewers", "7", "--repo", "o/r"), 0,
@@ -153,12 +153,12 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     ("pyright_patch.cjs", "PYRIGHT_PATCH_PRELOAD"),
     ("pyright_export.cjs", "PYRIGHT_EXPORT_PRELOAD"),
 ])
-def test_dr_wheel_carries_the_pyright_preload(artifacts, tmp_path, source, attribute):
-    expected = (WORKSPACE / "dr" / "src" / "deterministic_refactor" / "lang" / source).read_bytes()
-    assert _wheel_file(artifacts["dr"]["wheel"], f"deterministic_refactor/lang/{source}") == expected
-    bin_dir = _install(tmp_path, artifacts["dr"]["wheel"])
+def test_trmv_wheel_carries_the_pyright_preload(artifacts, tmp_path, source, attribute):
+    expected = (WORKSPACE / "trmv" / "src" / "trmv" / "lang" / source).read_bytes()
+    assert _wheel_file(artifacts["trmv"]["wheel"], f"trmv/lang/{source}") == expected
+    bin_dir = _install(tmp_path, artifacts["trmv"]["wheel"])
     located = subprocess.run(
-        [str(bin_dir / "python"), "-c", f"from deterministic_refactor import lang; print(lang.{attribute})"],
+        [str(bin_dir / "python"), "-c", f"from trmv import lang; print(lang.{attribute})"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
     assert Path(located).is_relative_to(tmp_path / "venv")

@@ -1,0 +1,3 @@
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json (from the fake npm twin)

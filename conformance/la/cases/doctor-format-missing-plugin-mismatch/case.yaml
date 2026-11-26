@@ -5,7 +5,6 @@ git:
 - write:
     plugin/.claude-plugin/plugin.json: '{"version": "0.0.1"}'
 normalize:
-- {pattern: '(reinstall them with: ).*', replace: '\1<INSTALL>'}
 - pattern: (this la reads format )[0-9]+\.[0-9]+\.[0-9]+
   replace: \1<FORMAT>
 - version

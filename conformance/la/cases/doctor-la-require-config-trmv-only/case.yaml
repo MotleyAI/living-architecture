@@ -1,0 +1,7 @@
+kind: neutral
+command: la-doctor
+args: [--require-config]
+expect:
+  exit: 1
+golden: manual
+note: la-doctor --require-config still requires living-architecture.yaml; a trmv-only repo gets the /la:init finding

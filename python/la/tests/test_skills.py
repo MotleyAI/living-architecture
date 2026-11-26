@@ -9,7 +9,7 @@ import yaml
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 PLUGIN_DIR = REPO_ROOT / "plugin"
 SKILL_FILES = sorted(PLUGIN_DIR.glob("*/skills/*/SKILL.md"))
-LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "dr" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
+LEAKS = yaml.safe_load((REPO_ROOT / "shared" / "trmv" / "vectors" / "skill-leaks.yaml").read_text(encoding="utf-8"))
 PREFLIGHT = "{doctor} --plugin <this skill's base directory>"
 
 
@@ -37,11 +37,11 @@ def test_frontmatter_name_matches_directory(path):
     assert m.group(1) == path.parent.name
 
 
-MAIN_SKILLS = {"la:init", "la:pr", "la:arch-init", "la:arch-cleanup", "dr:init", "dr:deterministic-refactor"}
+MAIN_SKILLS = {"la:init", "la:pr", "la:arch-init", "la:arch-cleanup", "trmv:init", "trmv:rename-move"}
 # The README's table: la:init names la:arch-init in its purpose; docs/skills.md lists every main skill.
-README_SKILLS = {"la:init", "la:pr", "dr:init", "dr:deterministic-refactor"}
+README_SKILLS = {"la:init", "la:pr", "trmv:init", "trmv:rename-move"}
 STAGES = {"la:pr-plan", "la:pr-tests", "la:pr-implement", "la:pr-review"}
-REQUIRE_CONFIG = MAIN_SKILLS - {"la:init", "dr:init"}
+REQUIRE_CONFIG = MAIN_SKILLS - {"la:init", "trmv:init"}
 REQUIRE_PLAN_STORE = {"la:pr"}
 DOCS_DIR = REPO_ROOT / "docs"
 DOCS_PAGES = [
@@ -50,13 +50,13 @@ DOCS_PAGES = [
     "skills.md",
     "configuration.md",
     "commands.md",
-    "deterministic-refactoring.md",
+    "rename-and-move.md",
     "development.md",
 ]
 BLOB_PREFIX = "https://github.com/MotleyAI/living-architecture/blob/main/"
 RAW_PREFIX = "https://raw.githubusercontent.com/MotleyAI/living-architecture/main/"
 LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
-TABLE_SKILL_RE = re.compile(r"^\|\s*`((?:la|dr):[a-z][a-z-]*[a-z])`\s*\|", re.MULTILINE)
+TABLE_SKILL_RE = re.compile(r"^\|\s*`((?:la|trmv):[a-z][a-z-]*[a-z])`\s*\|", re.MULTILINE)
 PREFLIGHT_RE = re.compile(r"^\*\*Preflight:\*\*.*$", re.MULTILINE)
 
 
@@ -196,9 +196,9 @@ def test_codex_steps_follow_the_config(path):
         assert "reviewers.codex" in text
 
 
-@pytest.mark.parametrize("name", ["la:pr-implement", "la:pr-review", "la:arch-cleanup", "dr:deterministic-refactor"])
+@pytest.mark.parametrize("name", ["la:pr-implement", "la:pr-review", "la:arch-cleanup", "trmv:rename-move"])
 def test_typecheck_gate(name):
-    assert "dr-typecheck" in _skill_text(name)
+    assert "trmv-typecheck" in _skill_text(name)
 
 
 def test_pr_follows_tracker_and_openspec_config():
@@ -232,7 +232,7 @@ def test_skills_name_only_flat_id_named_arc42_docs(path):
     assert [form for form in RETIRED_ARC42_FORMS if form in text] == []
 
 
-@pytest.mark.parametrize("name", ["dr:deterministic-refactor", "la:arch-cleanup", "dr:make-diff-compliant"])
+@pytest.mark.parametrize("name", ["trmv:rename-move", "la:arch-cleanup", "trmv:make-diff-compliant"])
 def test_soundness_skills_keep_the_full_suite(name):
     assert "local test scope" not in _skill_text(name)
 

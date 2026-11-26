@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: a needed import added to a destination holding only its shebang, coding line and a comment goes below the header, not above the shebang

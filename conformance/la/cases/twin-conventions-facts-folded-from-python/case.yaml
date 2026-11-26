@@ -15,7 +15,7 @@ bins:
     la-doctor: |
       #!/bin/sh
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "python <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
+      echo "python <VERSION> <CONTRACT_HASH> <TRMV_CONTRACT_HASH>"
     la-check-conventions: |
       #!/bin/sh
       case " $* " in *" --language python "*) ;; *) echo "fake la-check-conventions: not a python facts request: $*" >&2; exit 99 ;; esac

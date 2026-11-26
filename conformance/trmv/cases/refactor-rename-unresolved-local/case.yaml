@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a function''s own local of the old name resolves to that local: unchanged, never listed as unresolved-name'
+golden: manual

@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/p.py
+- --symbol
+- Attach.producer_root_model
+- --new-name
+- producer_population
+fixture: refactor-never
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a member rename refuses on receivers the checker types Never, at the positions trmv-compliance --attr reports'

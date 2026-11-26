@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a name the moved code reads through a first-party star import: the destination imports it by name (rope added none, leaving C unbound)'
+golden: manual

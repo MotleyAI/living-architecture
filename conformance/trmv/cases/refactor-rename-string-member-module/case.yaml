@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/mod.py
+- --symbol
+- list_models
+- --new-name
+- list_datasets
+fixture: refactor-module-member
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/mod.py
+  - tests/test_p.py
+golden: manual
+note: monkeypatch.setattr and patch.object naming a function of an imported project module are rewritten

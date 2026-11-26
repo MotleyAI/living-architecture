@@ -1,8 +1,0 @@
-kind: neutral
-command: dr-config
-args:
-- show
-expect:
-  exit: 0
-note: dr ignores living-architecture.local.yaml and shows only dr keys
-golden: manual

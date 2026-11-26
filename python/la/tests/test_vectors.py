@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from deterministic_refactor.contract import normalize
+from trmv.contract import normalize
 
 
 def _repo_root() -> Path:
@@ -25,7 +25,7 @@ LA_CONFIG = Path(sys.executable).parent / "la-config"
 
 def _load(name: str) -> dict:
     """Vector file `name` of whichever package's contract holds it."""
-    [path] = [SHARED / package / "vectors" / name for package in ("dr", "la") if (SHARED / package / "vectors" / name).is_file()]
+    [path] = [SHARED / package / "vectors" / name for package in ("trmv", "la") if (SHARED / package / "vectors" / name).is_file()]
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
@@ -65,7 +65,7 @@ def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) ->
         text = vector["config"]
         data = yaml.safe_load(text)
         if isinstance(data, dict):
-            formats = yaml.safe_load((SHARED / "dr" / "config.yaml").read_text(encoding="utf-8"))["formats"]
+            formats = yaml.safe_load((SHARED / "trmv" / "config.yaml").read_text(encoding="utf-8"))["formats"]
             current = formats["living-architecture.yaml"][-1]
             text = yaml.safe_dump({"format": current, **data})
             expected = {**expected, "format": current}

@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - use.py
+golden: manual
+note: a from-import split inside an inline suite (on its compound statement's header line) keeps the moved name in
+  that suite, after `; `

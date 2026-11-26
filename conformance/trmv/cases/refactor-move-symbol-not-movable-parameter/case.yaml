@@ -1,0 +1,25 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/shapes.py
+- --line
+- '14'
+- --col
+- '22'
+- --dest
+- pkg/dest.py
+fixture: refactor-move-shapes
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/shapes.py
+  - pkg/dest.py
+note: 'not movable (parameter): refused naming --file, nothing written (rope: a traceback)'
+golden: manual

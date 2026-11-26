@@ -1,1 +1,1 @@
-FAIL: installed la tools are <VERSION>, but plugin 0.0.0-rc1 needs 0.0.x; reinstall them with: npm install -g living-architecture@0.0.0-rc1 deterministic-refactor@0.0.0-rc1
+FAIL: installed la tools are <VERSION>, but plugin 999.0.0-rc1 needs 999.0.x; reinstall them with: npm install -g living-architecture@999.0.0-rc1 type-rename-move@999.0.0-rc1

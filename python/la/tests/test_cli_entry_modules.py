@@ -13,7 +13,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE = PROJECT_ROOT.parent
 # Per distribution: its member directory and its import package.
-PACKAGES = {"dr": "deterministic_refactor", "la": "living_architecture"}
+PACKAGES = {"trmv": "trmv", "la": "living_architecture"}
 SCRIPT_PACKAGES: dict[str, str] = {
     command: package
     for member, package in PACKAGES.items()
@@ -30,10 +30,10 @@ CLI_INITS = {package: WORKSPACE / member / "src" / package / "cli" / "__init__.p
 COMMAND_PACKAGES = [
     "living_architecture.affected", "living_architecture.archcheck", "living_architecture.c4",
     "living_architecture.conventions", "living_architecture.doctor", "living_architecture.review",
-    "deterministic_refactor.refactor", "deterministic_refactor.twin", "deterministic_refactor.typecheck",
+    "trmv.refactor", "trmv.twin", "trmv.typecheck",
 ]
 HEAVY = [
-    "rope", "deterministic_refactor.refactor", "deterministic_refactor.typecheck",
+    "rope", "trmv.refactor", "trmv.typecheck",
     *(f"living_architecture.{p}" for p in ("archcheck", "c4", "conventions", "affected")),
 ]
 SHIMS = ["la-fetch-coderabbit-threads", "la-reply-invalid-coderabbit", "la-reply-to-pr-thread", "la-fetch-failed-pr-checks",

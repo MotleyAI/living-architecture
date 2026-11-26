@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/lib/index.ts
+- --new-name
+- main
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'an index file is an ordinary file: it moves within its directory, and a directory specifier that resolved to it names
+  the new file in its own extensionless style'

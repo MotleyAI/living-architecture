@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- move-module
+- --module
+- src/api.ts
+- --dest
+- src/lib
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - test/api.test.ts
+  - src/lib/api.ts
+  - src/api.ts
+  git_status: true
+golden: manual
+note: move-module rewrites mock module paths naming the moved file, each in its own extension style

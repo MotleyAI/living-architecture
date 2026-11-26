@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-compliance
+args:
+- --select
+- string-blindspot
+- --attr
+- formula
+- src
+fixture: compliance-attr-checks
+expect:
+  exit: 1
+golden: manual
+note: --select string-blindspot reports only the string-named access, not the attribute access

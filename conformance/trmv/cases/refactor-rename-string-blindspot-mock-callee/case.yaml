@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/engine.py
+- --symbol
+- Engine.get_model
+- --new-name
+- get_dataset
+fixture: refactor-typed
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/engine.py
+  - tests/test_b.py
+golden: manual
+note: a patch.object call on an unannotated mocker fixture is a blind spot printed as string-blindspot, and the rename refuses

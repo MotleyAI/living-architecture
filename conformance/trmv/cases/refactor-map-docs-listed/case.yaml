@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --docs
+fixture: refactor-docs-map
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'two entries rename one old name on two classes: each class''s docstring or JSDoc takes its own new name, a
+  code-marked mention outside both is listed once, no map-conflict, both entries apply'

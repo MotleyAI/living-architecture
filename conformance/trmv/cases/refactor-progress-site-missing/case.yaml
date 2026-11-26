@@ -1,0 +1,19 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --with
+- lib/gone:3
+- --without
+- README.md:400
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: '--with and --without naming no file or line: site-missing for both in checks'

@@ -1,10 +1,10 @@
 import argparse
 from pathlib import Path
 
-from deterministic_refactor import config, twin
-from deterministic_refactor.config.command import command_argv
 from living_architecture import conventions
 from living_architecture.config import run_command
+from trmv import config, twin
+from trmv.config.command import command_argv
 
 
 def _check_conventions(args: argparse.Namespace) -> int:

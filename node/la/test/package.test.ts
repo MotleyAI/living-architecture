@@ -5,13 +5,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED_ROOT, loadYamlFile, readJson, tree } from '../../dr/test/helpers.js';
+import { HASH_FILE, NODE_ROOT, REPO_ROOT, SHARED_ROOT, loadYamlFile, readJson, tree } from '../../trmv/test/helpers.js';
 
-const PACKAGES = ['dr', 'la'] as const;
+const PACKAGES = ['trmv', 'la'] as const;
 const packageJson = (pkg: string): any => readJson(join(NODE_ROOT, pkg, 'package.json'));
 // Each package's contract, its npm snapshot and its PyPI twin's.
 const SNAPSHOTS: [string, string, string][] = [
-  ['dr', join(NODE_ROOT, 'dr', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'dr', 'src', 'deterministic_refactor', 'contract', 'data')],
+  ['trmv', join(NODE_ROOT, 'trmv', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'trmv', 'src', 'trmv', 'contract', 'data')],
   ['la', join(NODE_ROOT, 'la', 'src', 'contract', 'data'), join(REPO_ROOT, 'python', 'la', 'src', 'living_architecture', 'contract', 'data')],
 ];
 
@@ -41,12 +41,12 @@ describe.each(PACKAGES)('node/%s/package.json', (pkg) => {
 
 describe('packed README.md and LICENSE', () => {
   it.each([
-    ['node/dr/README.md', 0],
-    ['node/dr/LICENSE', 0],
+    ['node/trmv/README.md', 0],
+    ['node/trmv/LICENSE', 0],
     ['node/la/README.md', 0],
     ['node/la/LICENSE', 0],
-    ['python/dr/README.md', 1],
-    ['python/dr/LICENSE', 1],
+    ['python/trmv/README.md', 1],
+    ['python/trmv/LICENSE', 1],
     ['python/la/README.md', 1],
     ['python/la/LICENSE', 1],
   ])('git check-ignore %s exits %i', (path, status) => {

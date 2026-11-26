@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename, --file, pkg/kinds.py, --symbol, "DriftKind['edit_model']", --new-name, edit_master]
+  typescript: [--apply, rename, --file, src/kinds.ts, --symbol, "Kind['edit_model']", --new-name, edit_master]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'a local bound once to the old value and passed on: its literal is rewritten, the call unchanged, no blind spot'

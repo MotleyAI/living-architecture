@@ -18,7 +18,7 @@ issue_key_pattern: "[A-Z][A-Z0-9]+-\\d+"   # ids allowed in arc42 [target: …] 
 commands:
   test: null                        # the full non-integration suite; unset = the repo's documented one
   lint: null
-  typecheck:                        # dr-typecheck's checker per language; null turns one off
+  typecheck:                        # trmv-typecheck's checker per language; null turns one off
     python: basedpyright            # basedpyright-compatible (--writebaseline, .basedpyright/baseline.json)
     typescript: tsc --noEmit        # --pretty false is appended
 refactor:
@@ -34,23 +34,23 @@ conventions:
 
 Types are strict: `codex: 'true'` or `text_ratio_max: '0.2'` is an error naming the key, not a coerced value.
 YAML 1.1 booleans (`yes`, `no`, `on`, `off`) are booleans. `issue_key_pattern` must use the portable regex
-subset in [`shared/dr/regex-subset.md`](../shared/dr/regex-subset.md), and so must each pattern of
-`refactor.string_forms`, which also holds exactly one capturing group: `dr-refactor` searches every string literal
+subset in [`shared/trmv/regex-subset.md`](../shared/trmv/regex-subset.md), and so must each pattern of
+`refactor.string_forms`, which also holds exactly one capturing group: `trmv-refactor` searches every string literal
 with each pattern and respells the group's text when a class or another module-level symbol of that name is
 renamed. `la-config show` prints the resolved
 configuration and `la-config get <dotted.key>` prints one value.
 
 `exempt` paths are left out of language detection and exempted from `la-check-conventions`.
 
-`commands.typecheck.python` must run basedpyright under Node and keep `NODE_OPTIONS`: `dr-typecheck` loads its
+`commands.typecheck.python` must run basedpyright under Node and keep `NODE_OPTIONS`: `trmv-typecheck` loads its
 in-memory patch for pyright#11919 through it. The patch is verified only for the basedpyright versions in
-`shared/dr/languages.yaml` (today `1.40.2`), so pin one; any other version, or a run the patch did not reach, exits 2.
+`shared/trmv/languages.yaml` (today `1.40.2`), so pin one; any other version, or a run the patch did not reach, exits 2.
 
-## dr's keys and `deterministic-refactor.yaml`
+## trmv's keys and `trmv.yaml`
 
-`format`, `exempt`, `commands.test`, `commands.typecheck` and `refactor` are dr's keys: the `dr-*` commands read
-them. A repo that uses la keeps them in `living-architecture.yaml`, so it has one file. A repo that uses only dr
-keeps them in `deterministic-refactor.yaml`, which `/dr:init` writes and which holds dr's keys alone:
+`format`, `exempt`, `commands.test`, `commands.typecheck` and `refactor` are trmv's keys: the `trmv-*` commands read
+them. A repo that uses la keeps them in `living-architecture.yaml`, so it has one file. A repo that uses only trmv
+keeps them in `trmv.yaml`, which `/trmv:init` writes and which holds trmv's keys alone:
 
 ```yaml
 format: 0.14.0
@@ -64,20 +64,20 @@ refactor:
   string_forms: []
 ```
 
-A dr command reads `deterministic-refactor.yaml`, else `living-architecture.yaml`; an la command reads only
-`living-architecture.yaml`. Both files at the repo root is an error from every command. `dr-config show` prints
-dr's resolved keys and `dr-config get <dotted.key>` one value; `dr-doctor --require-config` asks for either file.
+A trmv command reads `trmv.yaml`, else `living-architecture.yaml`; an la command reads only
+`living-architecture.yaml`. Both files at the repo root is an error from every command. `trmv-config show` prints
+trmv's resolved keys and `trmv-config get <dotted.key>` one value; `trmv-doctor --require-config` asks for either file.
 
 ## Format
 
 `format` is the repo format: the version that introduced the format of the file that declares it. Each file has
 its own series: `living-architecture.yaml` (with everything under `architecture/`) follows la's releases, and
-`deterministic-refactor.yaml` dr's. Every command except `la-arch-migrate`, the doctors and the review shims checks
+`trmv.yaml` trmv's. Every command except `la-arch-migrate`, the doctors and the review shims checks
 the file it read first and exits 2 on any other format. For `living-architecture.yaml`, a newer one names the `la`
 to upgrade to, and an older or missing one says to run `la-arch-migrate`, which converts the repo one released
 format at a time, starting from the declared one, and stamps the current format (from 0.4.0 to 0.14.0 it moves
-`conventions.exempt` to the top-level `exempt`). For `deterministic-refactor.yaml`, a newer one names the dr to
-upgrade to. `la-doctor` and `dr-doctor` report the same refusal as a problem. Without a committed file there is
+`conventions.exempt` to the top-level `exempt`). For `trmv.yaml`, a newer one names the trmv to
+upgrade to. `la-doctor` and `trmv-doctor` report the same refusal as a problem. Without a committed file there is
 nothing to check; the local file cannot set `format`.
 
 ## Languages

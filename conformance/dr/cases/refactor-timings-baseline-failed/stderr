@@ -1,8 +1,0 @@
-[resolve]
-[checks]
-the python type checker failed, so the baseline cannot be realigned and nothing was refactored
-  the checker could not start: dr-typecheck: python: no-such-checker not found in .venv/bin or on PATH
-timing: load <S>s
-timing: resolve <S>s
-timing: baseline <S>s
-timing: total <S>s

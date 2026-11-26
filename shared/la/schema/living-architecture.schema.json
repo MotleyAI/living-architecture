@@ -7,10 +7,10 @@
   "additionalProperties": false,
   "properties": {
     "format": {
-      "$ref": "deterministic-refactor.schema.json#/properties/format"
+      "$ref": "trmv.schema.json#/properties/format"
     },
     "exempt": {
-      "$ref": "deterministic-refactor.schema.json#/properties/exempt"
+      "$ref": "trmv.schema.json#/properties/exempt"
     },
     "tracker": {
       "enum": [
@@ -66,7 +66,7 @@
       "additionalProperties": false,
       "properties": {
         "test": {
-          "$ref": "deterministic-refactor.schema.json#/properties/commands/properties/test"
+          "$ref": "trmv.schema.json#/properties/commands/properties/test"
         },
         "lint": {
           "type": [
@@ -76,12 +76,12 @@
           "default": null
         },
         "typecheck": {
-          "$ref": "deterministic-refactor.schema.json#/properties/commands/properties/typecheck"
+          "$ref": "trmv.schema.json#/properties/commands/properties/typecheck"
         }
       }
     },
     "refactor": {
-      "$ref": "deterministic-refactor.schema.json#/properties/refactor"
+      "$ref": "trmv.schema.json#/properties/refactor"
     },
     "conventions": {
       "type": "object",

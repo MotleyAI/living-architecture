@@ -1,0 +1,11 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+symlinks:
+  living-architecture.yaml: loop
+  loop: living-architecture.yaml
+expect:
+  exit: 1
+note: 'a config file that cannot be inspected (symlink loop) is a config error with the OS error, not skipped'
+golden: manual

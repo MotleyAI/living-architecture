@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename, --file, pkg/m.py, --symbol, Ds.columns, --new-name, fields]
+  typescript: [rename, --file, src/m.ts, --symbol, Ds.columns, --new-name, fields]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a name read from a once-bound constant tuple (TypeScript: an `as const` array, by a callback parameter and a for-of) names the renamed member: the element is rewritten, the reads are not'

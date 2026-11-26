@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/api.ts
+- --new-name
+- client
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: Jest mock module paths follow the renamed module on an aliased jest import and the undeclared global; the typed factory's
+  type argument agrees with its string

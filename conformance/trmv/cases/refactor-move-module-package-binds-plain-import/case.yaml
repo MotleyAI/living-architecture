@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-module
+- --module
+- a/b.py
+- --dest
+- d
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - a/__init__.py
+  - d/b.py
+  - use.py
+golden: manual
+note: a package that binds the moved module keeps a use only while its root import stays; `import a.b` rewritten
+  to `import d.b` takes `a.b.value` with it

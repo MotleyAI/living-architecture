@@ -1,7 +1,7 @@
 // One language's architecture facts: unit statuses, top-level units and witnessed element edges.
-import { requestDocument } from 'deterministic-refactor/twin';
+import { requestDocument } from 'type-rename-move/twin';
 import { contractHash, identity } from '../contract/index.js';
-import { moduleImports, topLevelUnits, unitStatus, type TsLayout } from 'deterministic-refactor/lang';
+import { moduleImports, topLevelUnits, unitStatus, type TsLayout } from 'type-rename-move/lang';
 import { VERSION } from '../index.js';
 import { type NodeMap, unitToElement } from './nodes.js';
 import { compareEdge, compareStrings } from './order.js';

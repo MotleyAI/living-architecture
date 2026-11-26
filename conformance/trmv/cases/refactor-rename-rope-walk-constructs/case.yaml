@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/api.py
+- --symbol
+- field
+- --new-name
+- describe
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/api.py
+  - pkg/use.py
+  - .ropeproject/history.json
+golden: manual
+note: annotated parameters, f-strings concatenated with literals and f-strings holding triple quotes are renamed like any other code

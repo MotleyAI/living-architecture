@@ -1,14 +1,14 @@
 // la-doctor and the local override: the git-state finding, its placement, the merged consistency checks and the
-// ok line's second source. PATH holds only the real git (or a fake one), a matching stub dr-doctor and, unless dropped, a
+// ok line's second source. PATH holds only the real git (or a fake one), a matching stub trmv-doctor and, unless dropped, a
 // stub gh.
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { currentFormat } from '../../dr/src/config/index.js';
-import { contractHash as drContractHash, whichPath } from '../../dr/src/contract/index.js';
-import { drProblem } from '../src/doctor/index.js';
+import { currentFormat } from '../../trmv/src/config/index.js';
+import { contractHash as trmvContractHash, whichPath } from '../../trmv/src/contract/index.js';
+import { trmvProblem } from '../src/doctor/index.js';
 import { VERSION } from '../src/index.js';
 import { run, tempRepo } from './cli-run.js';
 
@@ -27,12 +27,12 @@ function script(path: string, body: string): void {
   chmodSync(path, 0o755);
 }
 
-/** PATH = one dir with the real git (or `fakeGit` as a script), a stub dr-doctor printing `drLine` and, when `gh`, a
+/** PATH = one dir with the real git (or `fakeGit` as a script), a stub trmv-doctor printing `trmvLine` and, when `gh`, a
  * stub gh. */
-function isolatePath(options: { fakeGit?: string; gh?: boolean; drLine?: string | null } = {}): string {
+function isolatePath(options: { fakeGit?: string; gh?: boolean; trmvLine?: string | null } = {}): string {
   const bin = mkdtempSync(join(tmpdir(), 'la-doctor-bin-'));
-  const drLine = options.drLine === undefined ? `typescript ${VERSION} ${drContractHash()}` : options.drLine;
-  if (drLine !== null) script(join(bin, 'dr-doctor'), `echo '${drLine}'\n`);
+  const trmvLine = options.trmvLine === undefined ? `typescript ${VERSION} ${trmvContractHash()}` : options.trmvLine;
+  if (trmvLine !== null) script(join(bin, 'trmv-doctor'), `echo '${trmvLine}'\n`);
   if (options.fakeGit === undefined) symlinkSync(REAL_GIT as string, join(bin, 'git'));
   else script(join(bin, 'git'), options.fakeGit);
   if (options.gh ?? true) script(join(bin, 'gh'), 'exit 0\n');
@@ -169,34 +169,34 @@ describe('la-doctor with a local file', () => {
   });
 });
 
-describe('la-doctor and the dr installation', () => {
+describe('la-doctor and the trmv installation', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('a matching dr-doctor is healthy', () => {
+  it('a matching trmv-doctor is healthy', () => {
     isolatePath();
-    expect(drProblem()).toBeNull();
+    expect(trmvProblem()).toBeNull();
   });
 
-  it('a missing dr-doctor names the install command', () => {
-    isolatePath({ drLine: null });
-    expect(drProblem()).toContain(`npm install -g living-architecture@${VERSION} deterministic-refactor@${VERSION}`);
+  it('a missing trmv-doctor names the install command', () => {
+    isolatePath({ trmvLine: null });
+    expect(trmvProblem()).toContain(`npm install -g living-architecture@${VERSION} type-rename-move@${VERSION}`);
   });
 
-  it('another dr version is reported', () => {
-    isolatePath({ drLine: `typescript 0.11.0 ${drContractHash()}` });
-    const problem = drProblem() ?? '';
+  it('another trmv version is reported', () => {
+    isolatePath({ trmvLine: `typescript 0.11.0 ${trmvContractHash()}` });
+    const problem = trmvProblem() ?? '';
     expect(problem).toContain('0.11.0');
     expect(problem).toContain(VERSION);
   });
 
   it('both config files are reported once', () => {
     isolatePath();
-    const root = tempRepo({ [COMMITTED]: 'tracker: jira\n', 'deterministic-refactor.yaml': 'format: 9.9.9\n' });
+    const root = tempRepo({ [COMMITTED]: 'tracker: jira\n', 'trmv.yaml': 'format: 9.9.9\n' });
     const [code, lines] = doctor(root);
     expect(code).toBe(1);
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('deterministic-refactor.yaml');
+    expect(lines[0]).toContain('trmv.yaml');
   });
 });

@@ -1,0 +1,27 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename
+  - --file
+  - tests/test_multi_name.py
+  - --symbol
+  - client
+  - --new-name
+  - cli2
+  typescript:
+  - rename
+  - --file
+  - src/sql/client.ts
+  - --new-name
+  - cli2
+fixture: refactor-references
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: rename edits only the module name tokens and the uses bound to them (rope's own edits)

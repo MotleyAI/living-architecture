@@ -1,0 +1,16 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/api.ts
+- --new-name
+- client
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a paths-mapped mock module path keeps its mapping, ending equal to an import of the same specifier

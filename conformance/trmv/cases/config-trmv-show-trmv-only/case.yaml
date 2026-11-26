@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 0
+note: trmv-config show prints the trmv keys with their defaults
+golden: manual

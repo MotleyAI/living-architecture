@@ -3,8 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { contractHash, identity, languageOf, message } from '../contract/index.js';
 import { VERSION } from '../index.js';
-import { conventionsFacts } from 'deterministic-refactor/lang';
-import * as twin from 'deterministic-refactor/twin';
+import { conventionsFacts } from 'type-rename-move/lang';
+import * as twin from 'type-rename-move/twin';
 
 export type Facts = Record<string, any>;
 

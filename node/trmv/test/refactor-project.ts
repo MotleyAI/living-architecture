@@ -1,0 +1,130 @@
+// Temp TypeScript projects for the trmv-refactor CLI tests, and the output they are expected to print.
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { currentFormat } from '../src/config/index.js';
+import { byCodePoint, message } from '../src/contract/index.js';
+import { unifiedDiff } from '../src/refactor/index.js';
+import { run, tempRepo, type Run } from './cli-run.js';
+import { tree } from './helpers.js';
+
+export const TSCONFIG = `${JSON.stringify(
+  {
+    compilerOptions: { target: 'es2022', module: 'esnext', moduleResolution: 'bundler', strict: true, noImplicitOverride: true, noEmit: true },
+    include: ['src'],
+  },
+  null,
+  2,
+)}\n`;
+
+/** A git repo with a strict tsconfig over `src`, the current format and `config` appended to the repo config. */
+export function tsProject(files: Record<string, string>, config = ''): string {
+  return tempRepo({ 'tsconfig.json': TSCONFIG, 'living-architecture.yaml': `format: ${currentFormat('living-architecture.yaml')}\n${config}`, ...files });
+}
+
+/** A copy of `root` in a fresh temp directory. */
+export function copyProject(root: string): string {
+  const copy = join(mkdtempSync(join(tmpdir(), 'la-copy-')), 'repo');
+  cpSync(root, copy, { recursive: true });
+  return copy;
+}
+
+const PHASES = 'resolve|checks|references|rules|conflicts|baseline|write';
+const PROGRESS = new RegExp(String.raw`^(?:\[(?:${PHASES})\]|\[(?:${PHASES}) \d+/\d+\] .*)$`);
+
+/** trmv-refactor's stderr without its phase and progress lines: every refusal, in the order printed. */
+export function finalReport(err: string): string {
+  return err
+    .split(/(?<=\n)/)
+    .filter((line) => !PROGRESS.test(line.replace(/\n$/, '')))
+    .join('');
+}
+
+/** `text` as the refusal of the map entries `indexes` (entry 1 by default) located by `locator`. */
+export function entryRefusal(locator: string, text: string, ...indexes: number[]): string {
+  const entries =
+    indexes.length > 1 ? message('refactor.progress-entries', { indexes: indexes.join(', ') }) : message('refactor.progress-entry', { index: indexes[0] ?? 1 });
+  return message('refactor.entry-refusal', { entries, locator, text });
+}
+
+/** trmv-refactor run in `root`, its stderr whole. */
+export const refactorRaw = (root: string, ...argv: string[]): Run => run(root, 'trmv-refactor', argv);
+
+/** `refactorRaw` with its stderr reduced to the `finalReport`. */
+export function refactor(root: string, ...argv: string[]): Run {
+  const result = refactorRaw(root, ...argv);
+  return { ...result, err: finalReport(result.err) };
+}
+
+export const read = (root: string, rel: string): string => readFileSync(join(root, rel), 'utf8');
+
+/** Every file outside `.git`, as relative path -> text. */
+export function files(root: string): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(tree(root))
+      .filter(([rel]) => !rel.startsWith('.git/'))
+      .map(([rel, [, bytes]]) => [rel, bytes.toString('utf8')]),
+  );
+}
+
+/** The 1-based line and column of the `nth` occurrence of `needle` in `rel`, plus `shift` columns. */
+export function lineCol(root: string, rel: string, needle: string, nth = 0, shift = 0): string[] {
+  const text = read(root, rel);
+  let index = -1;
+  for (let i = 0; i <= nth; i += 1) index = text.indexOf(needle, index + 1);
+  if (index < 0) throw new Error(`${needle} not found in ${rel}`);
+  const before = text.slice(0, index).split('\n');
+  return ['--line', String(before.length), '--col', String((before.at(-1) ?? '').length + 1 + shift)];
+}
+
+export interface Change {
+  path: string;
+  old: string;
+  new: string;
+}
+
+/** What trmv-refactor prints: the headers, one diff per change in path order, then the footer. */
+export function expectedOut(headers: string[], changes: Change[], apply: boolean): string {
+  const sorted = changes.toSorted((a, b) => byCodePoint(a.path, b.path));
+  const body = sorted.map((c) => `${unifiedDiff(c.old, c.new, c.path)}\n`).join('');
+  const applied = sorted.map((c) => `${message('refactor.applied-file', { path: c.path })}\n`).join('');
+  const footer = apply ? `${message('refactor.applied', { count: sorted.length })}\n${applied}` : `${message('refactor.dry-run', { count: sorted.length })}\n`;
+  return `${headers.join('\n')}\n\n\n${body}\n${footer}`;
+}
+
+export const renameHeader = (old: string, next: string): string => message('refactor.rename-header', { old, new: next });
+
+/** A rename map file: one `{key: value}` mapping per entry. */
+export function mapYaml(entries: Record<string, string | number>[]): string {
+  return entries
+    .map((entry) =>
+      Object.entries(entry)
+        .map(([key, value], i) => `${i === 0 ? '- ' : '  '}${key}: ${typeof value === 'number' ? value : JSON.stringify(value)}`)
+        .join('\n'),
+    )
+    .join('\n')
+    .concat('\n');
+}
+
+/** `.tsc-baseline.json` as la-typecheck writes it, from `[file, code, message, count]` keys. */
+export function tscBaseline(keys: [string, string, string, number][]): string {
+  const sorted = keys.toSorted((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]) || byCodePoint(a[2], b[2]));
+  const out: Record<string, { code: string; message: string; count: number }[]> = {};
+  for (const [file, code, msg, count] of sorted) {
+    out[file] = [...(out[file] ?? []), { code, message: msg, count }];
+  }
+  return `${JSON.stringify({ files: out }, null, 2)}\n`;
+}
+
+/** Commit everything in `root`. */
+export function commitAll(root: string, msg = 'init'): void {
+  execFileSync('git', ['add', '-A'], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
+  execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', msg], { cwd: root }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
+}
+
+/** `git status --porcelain` lines of `root`. */
+export function gitStatus(root: string): string[] {
+  const out = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }); // NOSONAR(S4036) — test helper runs the developer's git from PATH
+  return out.split('\n').filter((line) => line !== '');
+}

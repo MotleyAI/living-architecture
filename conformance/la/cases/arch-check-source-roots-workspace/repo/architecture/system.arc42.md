@@ -2,4 +2,4 @@
 
 ## Principles
 
-1. dr never depends on la. [enforced: arch_check:model-truth]
+1. trmv never depends on la. [enforced: arch_check:model-truth]

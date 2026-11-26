@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'a retarget map entry refuses a wildcard path: symbol-wildcard, nothing written'

@@ -5,7 +5,7 @@ on:
     types: [published]
 
 jobs:
-  # Every twin publishes only if every version equals the tag, la pins dr to its minor, each snapshot records its
+  # Every twin publishes only if every version equals the tag, la pins trmv to its minor, each snapshot records its
   # contract's hash and the release rule holds.
   check:
     runs-on: ubuntu-latest
@@ -18,7 +18,7 @@ jobs:
       - name: Check the vendored contract snapshots are current
         run: scripts/sync-shared --check
 
-  # deterministic-refactor first: living-architecture depends on it.
+  # type-rename-move first: living-architecture depends on it.
   pypi:
     needs: check
     runs-on: ubuntu-latest
@@ -31,19 +31,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - run: uv build --package deterministic-refactor --out-dir dist/dr
+      - run: uv build --package type-rename-move --out-dir dist/trmv
       - run: uv build --package living-architecture --out-dir dist/la
       # skip-existing: a rerun after a partial release publishes only what is missing.
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
-          packages-dir: python/dist/dr/
+          packages-dir: python/dist/trmv/
           skip-existing: true
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: python/dist/la/
           skip-existing: true
 
-  # dr first, as on PyPI; a package marked private, or whose version is already on npm (a rerun), is skipped.
+  # trmv first, as on PyPI; a package marked private, or whose version is already on npm (a rerun), is skipped.
   npm:
     needs: check
     runs-on: ubuntu-latest
@@ -62,10 +62,10 @@ jobs:
       - run: npm install -g --ignore-scripts npm@11.21.3  # trusted publishing needs npm >= 11.5
       - run: npm ci --ignore-scripts
       - run: npm run build
-      - name: Publish dr, then la
+      - name: Publish trmv, then la
         run: |
           err=$(mktemp)
-          for package in dr la; do
+          for package in trmv la; do
             name=$(jq -r .name "$package/package.json")
             version=$(jq -r .version "$package/package.json")
             if [ "$(jq -r '.private // false' "$package/package.json")" = "true" ]; then

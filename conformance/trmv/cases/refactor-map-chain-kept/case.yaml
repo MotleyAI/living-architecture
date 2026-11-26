@@ -1,0 +1,23 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python:
+  - rename-map
+  - renames.yaml
+  - --keep
+  - pkg/f.py:5
+  typescript:
+  - rename-map
+  - renames.yaml
+  - --keep
+  - src/f.ts:5
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'the member chain with --keep on the declaration it frees: the name stays taken, refused in conflicts for the entry
+  renaming onto it'

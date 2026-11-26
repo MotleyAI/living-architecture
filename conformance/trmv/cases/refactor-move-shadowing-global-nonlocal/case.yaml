@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-module
+- --module
+- pkg/sub/thing.py
+- --dest
+- pkg
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: a name bound by a module-level import and by an assignment under global has no single value before the move
+  and loses the import after it; refused, nothing written

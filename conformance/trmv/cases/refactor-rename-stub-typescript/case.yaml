@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/m.ts
+- --symbol
+- old
+- --new-name
+- fresh
+- --stub
+- '2.0'
+fixture: refactor-ts-old
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: '--stub on a TypeScript rename refuses: stub-not-module, nothing written'

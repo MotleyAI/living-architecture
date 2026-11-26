@@ -1,9 +1,0 @@
-kind: adapter
-languages:
-- python
-fixture: typecheck-python
-command: dr-typecheck
-expect:
-  exit: 0
-note: a dr-only repo configures dr-typecheck in deterministic-refactor.yaml
-golden: manual

@@ -9,8 +9,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor import twin
-from deterministic_refactor.contract import os_error_text
 from living_architecture.archcheck.facts import Facts, native_top_level_facts, requested_facts
 from living_architecture.archcheck.index import (
     INDEX_REL,
@@ -30,6 +28,8 @@ from living_architecture.c4 import (
     views_file,
 )
 from living_architecture.contract import message
+from trmv import twin
+from trmv.contract import os_error_text
 
 ARC42_REL = "architecture/system.arc42.md"
 

@@ -1,9 +1,0 @@
-kind: neutral
-command: dr-config
-args:
-- get
-- lang.ruby.markers
-expect:
-  exit: 2
-note: an unregistered language
-golden: manual

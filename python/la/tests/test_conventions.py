@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from deterministic_refactor import config
-from deterministic_refactor.config import ConfigError
 from living_architecture import conventions
 from living_architecture.cli.la_check_conventions import la_check_conventions
 from living_architecture.contract import config_file
 from living_architecture.conventions.gate import pr_base
+from trmv import config
+from trmv.config import ConfigError
 
 
 def _violations(tmp_path: Path, source: str, rel: str = "pkg/mod.py") -> list[str]:

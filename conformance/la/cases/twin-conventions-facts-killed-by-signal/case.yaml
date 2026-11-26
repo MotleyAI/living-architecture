@@ -18,7 +18,7 @@ bins:
     la-doctor: |
       #!/bin/sh
       [ "$*" = "--twin" ] || { echo "fake la-doctor: unexpected $*" >&2; exit 99; }
-      echo "typescript <VERSION> <CONTRACT_HASH> <DR_CONTRACT_HASH>"
+      echo "typescript <VERSION> <CONTRACT_HASH> <TRMV_CONTRACT_HASH>"
     la-check-conventions: |
       #!/bin/sh
       case " $* " in *" --language typescript "*) ;; *) echo "fake la-check-conventions: not a typescript facts request: $*" >&2; exit 99 ;; esac

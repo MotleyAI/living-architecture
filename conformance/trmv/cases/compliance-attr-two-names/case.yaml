@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-compliance
+args:
+- --select
+- attr-blindspot
+- --attr
+- get_model
+- --attr
+- save_model
+- src
+expect:
+  exit: 1
+golden: manual
+note: '--attr twice: one scan reports both names'' blind spots in one block sorted by path, line and column (save_model before
+  get_model on the line), exit 1'

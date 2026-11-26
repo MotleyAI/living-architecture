@@ -1,17 +1,17 @@
-"""la's shared contract, loaded from its vendored snapshot; an id la's registry lacks renders from dr's."""
+"""la's shared contract, loaded from its vendored snapshot; an id la's registry lacks renders from trmv's."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from deterministic_refactor.contract import Snapshot, render_template
-from deterministic_refactor.contract import contract_hash as dr_contract_hash
-from deterministic_refactor.contract import materialize_defaults as dr_materialize_defaults
-from deterministic_refactor.contract import message as dr_message
-from deterministic_refactor.contract import validate as dr_validate
-from deterministic_refactor.twin import Identity
 from living_architecture import __version__
+from trmv.contract import Snapshot, render_template
+from trmv.contract import contract_hash as trmv_contract_hash
+from trmv.contract import materialize_defaults as trmv_materialize_defaults
+from trmv.contract import message as trmv_message
+from trmv.contract import validate as trmv_validate
+from trmv.twin import Identity
 
 LA = Snapshot(Path(__file__).resolve().parent / "data")
 
@@ -64,23 +64,23 @@ def script_path(name: str) -> Path:
 
 
 def message(template_id: str, **values: object) -> str:
-    """The finding `template_id` rendered from la's registry, else from dr's."""
+    """The finding `template_id` rendered from la's registry, else from trmv's."""
     template = findings().get(template_id)
-    return dr_message(template_id, **values) if template is None else render_template(template, values)
+    return trmv_message(template_id, **values) if template is None else render_template(template, values)
 
 
 def validate(schema: dict[str, Any], data: Any) -> list[str]:
-    """`data` against an la schema, whose `$ref`s into dr's schemas resolve."""
-    return dr_validate(schema, data, (LA,))
+    """`data` against an la schema, whose `$ref`s into trmv's schemas resolve."""
+    return trmv_validate(schema, data, (LA,))
 
 
 def materialize_defaults(schema: dict[str, Any], data: object) -> Any:
-    """`data` with an la schema's defaults filled in, following its `$ref`s into dr's schemas."""
-    return dr_materialize_defaults(schema, data, (LA,))
+    """`data` with an la schema's defaults filled in, following its `$ref`s into trmv's schemas."""
+    return trmv_materialize_defaults(schema, data, (LA,))
 
 
 def identity() -> Identity:
-    """la's twin identity: its doctor, version, la's contract hash and the dr hash of the dr library it runs with."""
+    """la's twin identity: its doctor, version, la's contract hash and the trmv hash of the trmv library it runs with."""
     cli = LA.yaml("cli.yaml")
-    hashes = (contract_hash(), dr_contract_hash())
+    hashes = (contract_hash(), trmv_contract_hash())
     return Identity(package=cli["package"], doctor=cli["doctor"], version=__version__, hashes=hashes, contract=LA)

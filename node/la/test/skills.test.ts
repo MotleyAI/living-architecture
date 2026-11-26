@@ -1,13 +1,13 @@
-// Skills are language-neutral: no language-only token (shared/dr/vectors/skill-leaks.yaml) and only valid
-// `la-config get` / `dr-config get` keys, `<language>` standing for every registered language.
+// Skills are language-neutral: no language-only token (shared/trmv/vectors/skill-leaks.yaml) and only valid
+// `la-config get` / `trmv-config get` keys, `<language>` standing for every registered language.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { run, tempRepo } from './cli-run.js';
-import { REPO_ROOT, SHARED, loadYamlFile, vectors } from '../../dr/test/helpers.js';
+import { REPO_ROOT, SHARED, loadYamlFile, vectors } from '../../trmv/test/helpers.js';
 
 const PLUGIN_ROOT = join(REPO_ROOT, 'plugin');
-const SKILLS = ['dr', 'la']
+const SKILLS = ['trmv', 'la']
   .flatMap((pkg) => {
     const dir = join(PLUGIN_ROOT, pkg, 'skills');
     return readdirSync(dir)
@@ -17,7 +17,7 @@ const SKILLS = ['dr', 'la']
   .sort();
 const LEAKS: Record<string, string[]> = vectors('skill-leaks.yaml') ?? {};
 const LANGUAGES = Object.keys(loadYamlFile(join(SHARED, 'languages.yaml')));
-const CONFIG_GET = /\b((?:la|dr)-config) get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g;
+const CONFIG_GET = /\b((?:la|trmv)-config) get ([A-Za-z0-9_.<>-]*[A-Za-z0-9_>])/g;
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const skillText = (id: string): string => {
@@ -58,8 +58,8 @@ describe('skill leaks', () => {
 describe('config keys in skills', () => {
   it('flags an unknown key', () => {
     expect(invalidKeys('`la-config get lang.<language>.runner`')).toEqual(['la-config get lang.<language>.runner']);
-    expect(invalidKeys('`dr-config get tracker`')).toEqual(['dr-config get tracker']);
-    expect(invalidKeys('`la-config get languages` and `dr-config get lang.<language>.markers`')).toEqual([]);
+    expect(invalidKeys('`trmv-config get tracker`')).toEqual(['trmv-config get tracker']);
+    expect(invalidKeys('`la-config get languages` and `trmv-config get lang.<language>.markers`')).toEqual([]);
   });
 
   it.each(SKILLS)('%s names only valid keys', (id) => {
@@ -68,7 +68,7 @@ describe('config keys in skills', () => {
 });
 
 describe('language idioms', () => {
-  it.each(LANGUAGES)('plugin/dr/languages/%s.md exists', (language) => {
-    expect(existsSync(join(PLUGIN_ROOT, 'dr', 'languages', `${language}.md`))).toBe(true);
+  it.each(LANGUAGES)('plugin/trmv/languages/%s.md exists', (language) => {
+    expect(existsSync(join(PLUGIN_ROOT, 'trmv', 'languages', `${language}.md`))).toBe(true);
   });
 });

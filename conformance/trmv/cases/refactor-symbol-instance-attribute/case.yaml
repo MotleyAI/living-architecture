@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/c.py
+- --symbol
+- C.cache
+- --new-name
+- store
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/__init__.py
+  - pkg/c.py
+golden: manual
+note: '--symbol C.cache names a self.cache assignment in __init__ (the class body declares no cache): the assignment and every
+  reference'

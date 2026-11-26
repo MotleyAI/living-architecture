@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- retarget
+- --file
+- pkg/engine.py
+- --symbol
+- Engine.save
+- --target
+- Engine.save_model
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/engine.py
+  - pkg/use.py
+golden: manual
+note: 'a subclass overrides the alias: one retarget-override line, exit 1, nothing written'

@@ -1,0 +1,3 @@
+decoy: trmv-doctor --twin
+uvx --from type-rename-move==<VERSION> trmv-doctor --twin
+uvx --from type-rename-move==<VERSION> trmv-mock-lint -- a.py

@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- retarget
+- --file
+- src/compat.ts
+- --symbol
+- Flight
+- --target
+- Facade
+fixture: retarget-ts-meanings
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a local value of the target''s name beside a type-only import of the target: the type use is bound, the value
+  use refuses with retarget-shadowed'

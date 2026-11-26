@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/top.py
+- --symbol
+- model_name
+- --new-name
+- dataset_name
+fixture: refactor-tuple-targets
+git:
+- commit: init
+expect:
+  exit: 0
+note: a module-level tuple target renamed with its use

@@ -1,0 +1,1 @@
+FAIL: installed la tools are <VERSION>, but plugin 0.0.0 is older; update the plugin: claude plugin marketplace update living-architecture && claude plugin update la@living-architecture

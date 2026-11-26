@@ -14,12 +14,12 @@ import yaml
 
 REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
 CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-PACKAGES = ("dr", "la")
+PACKAGES = ("trmv", "la")
 DURATIONS = "tests/durations"
 CONFORMANCE_CASES = "tests/test_conformance.py::test_case"
 UV_RUN = "uv run --locked --no-build"
 # Per package: the tests its cross-twin run collects, as node/scripts/conformance.mjs runs them.
-CROSS_TESTS = {"dr": ["tests/test_conformance.py", "tests/test_module_map_equivalence.py"], "la": ["tests/test_conformance.py"]}
+CROSS_TESTS = {"trmv": ["tests/test_conformance.py", "tests/test_module_map_equivalence.py"], "la": ["tests/test_conformance.py"]}
 # Per job kind: shard count, environment and pytest arguments, as the CI job runs them in a package.
 KINDS = {
     "suite": (2, {}, lambda package: ["--deselect", CONFORMANCE_CASES]),

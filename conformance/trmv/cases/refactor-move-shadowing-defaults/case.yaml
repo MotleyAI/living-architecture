@@ -1,0 +1,17 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-module
+- --module
+- pkg/sub/thing.py
+- --dest
+- pkg
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: defaults and annotations read the enclosing scope and are rewritten; the body's parameter is unchanged

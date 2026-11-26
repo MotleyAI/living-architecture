@@ -2,8 +2,8 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ConfigError, bothFilesProblem, checkFormat, repoLanguages } from 'deterministic-refactor/config';
-import * as twin from 'deterministic-refactor/twin';
+import { ConfigError, bothFilesProblem, checkFormat, repoLanguages } from 'type-rename-move/config';
+import * as twin from 'type-rename-move/twin';
 import { type LaConfig, languagesOf, loadConfig, loadRaw, resolveRaw } from '../config/index.js';
 import {
   LA,
@@ -30,16 +30,16 @@ const install = (version: string): string => twin.installCommand(NATIVE_LANGUAGE
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile();
 
-/** The first `dr-doctor` on PATH missing, or reporting another language, version or dr contract than la runs with. */
-export function drProblem(): string | null {
-  const dr = twin.drIdentity();
-  const expected = twin.line({ ...dr, version: VERSION }, NATIVE_LANGUAGE);
-  const found = whichPath(dr.doctor);
-  if (!found) return message('doctor.dr-missing', { install: install(VERSION) });
+/** The first `trmv-doctor` on PATH missing, or reporting another language, version or trmv contract than la runs with. */
+export function trmvProblem(): string | null {
+  const trmv = twin.trmvIdentity();
+  const expected = twin.line({ ...trmv, version: VERSION }, NATIVE_LANGUAGE);
+  const found = whichPath(trmv.doctor);
+  if (!found) return message('doctor.trmv-missing', { install: install(VERSION) });
   const proc = spawnSync(found, ['--twin'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const reported = proc.error === undefined && proc.status === 0 ? proc.stdout.trim() : '';
   if (reported === expected) return null;
-  return message('doctor.dr-mismatch', { reported, version: VERSION, expected, install: install(VERSION) });
+  return message('doctor.trmv-mismatch', { reported, version: VERSION, expected, install: install(VERSION) });
 }
 
 /** Whether `path` is a regular file, or the OS error probing it. */
@@ -129,8 +129,8 @@ export function runChecks(
 ): string[] {
   const version = plugin !== null ? pluginProblem(plugin, pluginName(), VERSION, install) : null;
   const problems = version !== null ? [version] : [];
-  const dr = drProblem();
-  if (dr !== null) problems.push(dr);
+  const trmv = trmvProblem();
+  if (trmv !== null) problems.push(trmv);
   const refusal = bothFilesProblem(root) ?? checkFormat(root, configFile());
   problems.push(...(refusal !== null ? [refusal] : configProblems(root, requireConfig, requirePlanStore)));
   const local = localProblem(root);

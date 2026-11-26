@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/store.py
+- --symbol
+- StorageBackend.get_model
+- --new-name
+- load
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'the configured checker is not installed: baseline-failed with its start error in checks, nothing searched or written'
