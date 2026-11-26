@@ -1,0 +1,14 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'a direct importer of the renamed name binds the new name itself: name-conflict naming the importer''s binding'

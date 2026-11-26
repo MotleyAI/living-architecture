@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Wide.columns
+- --new-name
+- fields
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/m.py
+golden: manual
+note: 'a string in a computed __slots__ value is a leftover, beside a __match_args__ entry that is rewritten'

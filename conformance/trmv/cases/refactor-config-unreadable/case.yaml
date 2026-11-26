@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename, --file, pkg/a.py, --symbol, foo, --new-name, bar]
+  typescript: [rename, --file, src/a.ts, --symbol, foo, --new-name, bar]
+git:
+- commit: init
+expect:
+  exit: 2
+  stdout: ''
+  git_status: true
+golden: manual
+note: 'an unreadable config with the language''s baseline file present refuses in checks, before any reference search'

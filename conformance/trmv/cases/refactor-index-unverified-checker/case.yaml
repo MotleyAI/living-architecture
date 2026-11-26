@@ -1,0 +1,27 @@
+kind: adapter
+languages:
+- python
+twin: python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/a.py
+- --symbol
+- foo
+- --new-name
+- bar
+fixture: refactor-pkg
+env:
+  NODE_OPTIONS: --require <ROOT>/repo/tools/unverify.cjs
+git:
+- commit: init
+expect:
+  exit: 1
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: 'a bundled basedpyright the export is not verified for: the language server
+  refuses, nothing written'

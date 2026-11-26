@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/kw.py
+- --symbol
+- 'kwonly(model_name)'
+- --new-name
+- dataset_name
+fixture: refactor-params
+git:
+- commit: init
+expect:
+  exit: 0
+note: located by --symbol; an opaque `**mapping` unchanged; a keyword forwarded through a `**kwargs` wrapper, a constant key of an
+  unpacked dict literal and a `functools.partial` keyword renamed

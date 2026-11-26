@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: trmv-typecheck
+expect:
+  exit: 2
+note: trmv-typecheck in an la repo checks living-architecture.yaml's format
+golden: manual

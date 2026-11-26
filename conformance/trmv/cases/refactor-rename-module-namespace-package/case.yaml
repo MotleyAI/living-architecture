@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- ns/use.py
+- --symbol
+- client
+- --new-name
+- cli2
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a module of a namespace package (no __init__.py): its file moves and every import of it is renamed'
+golden: manual

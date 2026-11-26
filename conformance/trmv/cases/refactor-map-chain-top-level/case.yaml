@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 0
+  git_status: true
+golden: manual
+note: 'swaps and chains of top-level names in one scope, each in both entry orders: every entry is resolved against the code
+  before the map and the name conflicts are checked on the code after it, all applied'

@@ -93,7 +93,7 @@ arch_check: 1 finding(s)
 
 Imports the code has today but the target architecture doesn't want are marked `#legacy` and counted against a
 baseline that the skills only ever lower; `/la:arch-cleanup` retires them a batch at a time. The moves that takes
-are done by `/la:deterministic-refactor`, which rewrites every import for you (la with the bundled basedpyright for
+are done by `/trmv:rename-move`, which rewrites every import for you (trmv with the bundled basedpyright for
 Python, the TypeScript language service for TypeScript) and has the type checker prove nothing was left dangling.
 
 See the model and principles this repo holds itself to in
@@ -138,10 +138,10 @@ Pin the check in CI to a release, in your ecosystem's form:
 ```yaml
 # Python
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx --no-build --from living-architecture==0.13.0 la-arch-check
+- run: uvx --no-build --from living-architecture==0.14.0 la-arch-check
 # TypeScript
 - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-- run: npx -y -p living-architecture@0.13.0 la-arch-check
+- run: npx -y -p living-architecture@0.14.0 la-arch-check
 ```
 
 When you move the pin to a release with a newer repo format, first run that release's `la-arch-migrate` and commit

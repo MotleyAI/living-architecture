@@ -1,0 +1,18 @@
+kind: neutral
+twin: python
+command: la-doctor
+bins:
+- dir: old-trmv
+  position: before
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "python 0.11.0 <TRMV_CONTRACT_HASH>"
+normalize:
+- version
+- trmv_contract_hash
+expect:
+  exit: 1
+note: 'the first trmv-doctor on PATH reports trmv 0.11.0: one finding naming both versions and the la install command'
+golden: manual

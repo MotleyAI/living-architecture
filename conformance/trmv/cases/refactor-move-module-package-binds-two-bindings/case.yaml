@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-module
+- --module
+- pkg/sql/client.py
+- --dest
+- pkg/database
+git:
+- commit: init
+expect:
+  exit: 0
+note: a use through a package that binds the moved module twice is unchanged

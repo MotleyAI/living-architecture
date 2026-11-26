@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- exempt
+expect:
+  exit: 0
+note: the top-level exempt list as written
+golden: manual

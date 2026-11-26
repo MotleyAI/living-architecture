@@ -1,0 +1,13 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+args:
+- --write-baseline
+fixture: typecheck-ts-src
+expect:
+  exit: 2
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: '--write-baseline when every baseline exists: skip, refuse, exit 2'

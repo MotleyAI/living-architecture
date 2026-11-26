@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename, --file, pkg/kinds.py, --symbol, "DriftKind['edit_model']", --new-name, edit_master]
+  typescript: [--apply, rename, --file, src/kinds.ts, --symbol, "Kind['edit_model']", --new-name, edit_master]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'a conditional value has no sources: its call site is a literal-unresolved blind spot; exit 1, nothing written'

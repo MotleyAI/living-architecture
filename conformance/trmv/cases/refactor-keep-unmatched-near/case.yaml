@@ -1,0 +1,17 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --keep, lib/near.py:8]
+  typescript: [--apply, rename-map, renames.yaml, --keep, lib/near.ts:7]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 2
+  git_status: true
+golden: manual
+note: 'a line keep spelling the old name in code where no edit lands, between two edited lines equally near: refused at
+  site resolution naming the earlier one, no [conflicts], nothing written'

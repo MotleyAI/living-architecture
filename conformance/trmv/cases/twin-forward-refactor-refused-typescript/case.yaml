@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+twin: python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- lib/store.ts
+- --symbol
+- Store.drop
+- --new-name
+- discard
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'the python twin forwards a refused typescript rename: its progress lines, the group''s refusal and the final report
+  pass through unchanged'

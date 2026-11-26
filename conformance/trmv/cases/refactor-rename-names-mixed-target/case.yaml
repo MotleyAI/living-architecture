@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename, --file, pkg/m.py, --symbol, Ds.columns, --new-name, fields, --without, 'pkg/m.py:8']
+  typescript: [--apply, rename, --file, src/m.ts, --symbol, Ds.columns, --new-name, fields, --without, 'src/m.ts:6']
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'one constant tuple read on a renamed and on a --without class: both reads are mixed-target, the tuple stays and the rename refuses'

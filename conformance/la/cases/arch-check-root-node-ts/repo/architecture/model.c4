@@ -1,0 +1,22 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  typescript = system 'TypeScript' {
+    trmv = node 'trmv' {
+      metadata {
+        package 'trmv/src'
+      }
+      core = node 'Core'
+    }
+    la = node 'la' {
+      metadata {
+        package 'la/src'
+      }
+    }
+
+    la -> trmv
+  }
+}

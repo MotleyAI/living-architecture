@@ -1,0 +1,20 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+twin: python
+other_twin: absent
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/b.ts
+- --symbol
+- v
+- --new-name
+- w
+expect:
+  exit: 2
+note: 'an older la file format is refused before trmv-refactor forwards a typescript file: no install hint'
+golden: manual

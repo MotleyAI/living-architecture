@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 2
+note: an older trmv file format names both formats
+golden: manual

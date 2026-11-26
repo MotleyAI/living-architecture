@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+fixture: refactor-move-shadowing
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: a new import follows the import written where the read resolves, not one a nonlocal or global
+  declaration redirects there

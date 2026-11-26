@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+golden: manual
+twin: python
+other_twin: absent
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/b.ts
+- --symbol
+- foo
+- --new-name
+- bar
+bins:
+- dir: other-twin
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    trmv-refactor: |
+      #!/bin/sh
+      exit 0
+  nonexec:
+  - trmv-refactor
+expect:
+  exit: 2
+note: 'the other twin qualifies but cannot run trmv-refactor: a twin error, exit 2, nothing on stdout'

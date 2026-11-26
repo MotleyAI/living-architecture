@@ -1,0 +1,12 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 1
+  stderr:
+    contains:
+    - tracker
+    - trmv.yaml
+note: trmv.yaml accepts only the trmv keys
+golden: manual

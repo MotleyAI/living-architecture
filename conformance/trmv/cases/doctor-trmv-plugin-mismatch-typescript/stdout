@@ -1,0 +1,1 @@
+FAIL: installed trmv tools are <VERSION>, but plugin 999.0.0 needs 999.0.x; reinstall them with: npm install -g type-rename-move@999.0.0

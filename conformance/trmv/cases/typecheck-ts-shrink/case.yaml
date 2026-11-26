@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-ts-src
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+golden: manual
+note: 'counts dropped without new errors: the baseline is rewritten downward'

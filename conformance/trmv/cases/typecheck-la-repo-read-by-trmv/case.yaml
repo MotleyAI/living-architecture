@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: trmv-typecheck
+expect:
+  exit: 0
+note: without trmv.yaml, trmv reads living-architecture.yaml
+golden: manual

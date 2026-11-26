@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-doctor
+expect:
+  exit: 1
+  stdout:
+    contains: ['FAIL: ', trmv.yaml, 9.0.0, upgrade trmv to 9.0.0]
+golden: manual
+note: a newer format in trmv.yaml names trmv as the package to upgrade

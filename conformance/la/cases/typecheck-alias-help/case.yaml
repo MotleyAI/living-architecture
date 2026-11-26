@@ -1,0 +1,9 @@
+kind: neutral
+command: la-typecheck
+args:
+- --help
+expect:
+  exit: 0
+  stdout: ignore
+note: the alias's help prints no deprecation line
+golden: manual

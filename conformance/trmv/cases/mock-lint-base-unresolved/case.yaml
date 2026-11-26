@@ -1,0 +1,18 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-mock-lint
+args:
+- --base
+- main
+- tests
+git:
+- commit: init
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - origin/main
+golden: manual
+note: '--base main where origin/main does not resolve (no origin): exit 2 naming it, nothing on stdout'

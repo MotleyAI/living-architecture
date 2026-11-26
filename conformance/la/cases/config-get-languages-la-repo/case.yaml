@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- languages
+expect:
+  exit: 0
+note: 'trmv-config and la-config print the same languages (the other: config-trmv-get-languages-la-repo)'
+golden: manual

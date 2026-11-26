@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'two pairs of entries each rewriting sites differently: every map conflict in path order, in one report'

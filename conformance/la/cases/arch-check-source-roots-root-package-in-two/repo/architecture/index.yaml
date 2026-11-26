@@ -1,0 +1,3 @@
+python:
+  source_roots: [a/src, b/src]
+  root_packages: [common, pb]

@@ -1,0 +1,32 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+args:
+- --realign-from
+- HEAD
+fixture: typecheck-realign
+git:
+- commit: init
+- write:
+    pkg/m.py: |
+      def f(a: int, b: int) -> int:
+          return a + b
+
+
+      def use() -> int:
+          return f(1, "x") + 3
+
+
+      def other() -> int:
+          return 1
+
+
+      def more() -> None:
+          print(len(4))
+expect:
+  exit: 1
+  files:
+  - .basedpyright/baseline.json
+golden: manual
+note: 'a baselined error is fixed and an error of the same rule lies in an added line: its range maps back to nothing, so the freed entry is not taken'

@@ -1,0 +1,11 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+remove:
+- pkg
+expect:
+  exit: 2
+golden: manual
+note: 'new behaviour: a root package found under no source_roots entry'

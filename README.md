@@ -47,24 +47,49 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 ## Install
 
 ```bash
-# the plugin
+# the plugin (installing la also installs trmv, the type-rename-move plugin it depends on)
 /plugin marketplace add MotleyAI/living-architecture
 /plugin install la@living-architecture
 
-# the commands (la-*, dr-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.13.0      # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.13.0        # TypeScript/JavaScript repos (Node >= 22)
+# the commands (la-*, trmv-*), pinned to the same version as the plugin, from your repo's ecosystem
+uv tool install living-architecture==0.14.0 --with-executables-from type-rename-move   # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.14.0 type-rename-move@0.14.0                      # TypeScript/JavaScript repos (Node >= 22)
 ```
 
-The commands come as a PyPI package and an npm package of the same name, with identical behaviour. Each serves
-its own ecosystem natively, needs nothing from the other in a single-language repo, and calls the other for the
-other language's files in a mixed repo
+The repo ships two packages that release together: `type-rename-move` (the `trmv-*` commands and the `trmv`
+plugin: verified renames and moves and the type-check gate) and `living-architecture` (the `la-*` commands and the
+`la` plugin), which depends on it. Each comes as a PyPI package and an npm package of the same name, with identical
+behaviour. Each serves its own ecosystem natively, needs nothing from the other in a single-language repo, and calls
+the other for the other language's files in a mixed repo
 ([details](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md#two-twins)). Skills check
 that the installed commands match the plugin before they run; a plugin update within the same minor version needs no
 reinstall.
 
-`living-architecture.yaml` records the repo's format version. After an upgrade that changes the format, most
-commands refuse to run on the repo until you run `la-arch-migrate` once, and `la-doctor` says so.
+### Upgrading
+
+1. Update the plugin: `claude plugin marketplace update living-architecture`, then
+   `claude plugin update la@living-architecture` (third-party marketplaces don't auto-update by default), then
+   `/reload-plugins` in any open Claude Code session.
+2. Rerun the install command above at the new version.
+3. When `la-doctor` asks, run `la-arch-migrate` once per repo and commit the result.
+
+With only trmv, update `trmv@living-architecture` in step 1 and rerun its install command in step 2. A skill's
+preflight catches a gap between these steps and prints the fix.
+
+**From 0.13:** renames and moves are now the `trmv` package and plugin: `trmv-refactor`, `trmv-compliance`,
+`trmv-mock-lint`, `trmv-typecheck` and the `trmv:` skills. `la-typecheck` stays as a deprecated alias until 0.15.0.
+
+### Just renames and moves
+
+To get verified renames and moves without the architecture workflow, install only trmv:
+
+```bash
+/plugin install trmv@living-architecture
+uv tool install type-rename-move==0.14.0      # Python repos
+npm install -g type-rename-move@0.14.0        # TypeScript/JavaScript repos
+```
+
+Then run `/trmv:init` in the repo: it writes `trmv.yaml` with the test and type-check commands.
 
 ## Quick start
 
@@ -93,7 +118,7 @@ skill, for example in your `CLAUDE.md` or `AGENTS.md`.
 
 The skill has the agent read the principles of every part of the code it touches before changing it, and run three
 checks before it finishes: `la-arch-check` holds the imports to the model's arrows and checks the principles' tags,
-`likec4 validate` checks the model itself, and `la-typecheck` runs basedpyright (or `tsc`) against a baseline that
+`likec4 validate` checks the model itself, and `trmv-typecheck` runs basedpyright (or `tsc`) against a baseline that
 only shrinks.
 
 To run the same checks in CI, see
@@ -116,7 +141,8 @@ call `/clear` and start the next stage by calling `/la:pr` again.
 |---|---|
 | `la:init` | Onboard a repo: detect its tools, write `living-architecture.yaml`, then set up OpenSpec and build the first architecture model and its principles with `la:arch-init` |
 | `la:pr` | Run a change through plan → failing tests → implementation → review |
-| `la:deterministic-refactor` | Rename or move Python or TypeScript code, proven complete by the type checker |
+| `trmv:init` | Onboard a repo to trmv alone: detect its test and type-check commands, write `trmv.yaml`, record the type-check baseline |
+| `trmv:rename-move` | Rename or move Python or TypeScript code, proven complete by the type checker |
 
 These skills call helper skills that you can also run on their own; see
 [Skills](https://github.com/MotleyAI/living-architecture/blob/main/docs/skills.md).
@@ -139,12 +165,12 @@ These skills call helper skills that you can also run on their own; see
 
 Always: `git`, `bash`, `gh` (authenticated) and `jq`.
 
-Per repo language (`la-doctor` checks them):
+Per repo language (`trmv-doctor` and `la-doctor` check them):
 
 | Language | Needs |
 |---|---|
-| Python | Python >= 3.11; the PyPI package; basedpyright in the project env for the type-check gate |
-| TypeScript | `node` (>= 22) and `npx`; the npm package; `tsc` in `node_modules` for the type-check gate |
+| Python | Python >= 3.11; the PyPI packages; basedpyright in the project env for the type-check gate |
+| TypeScript | `node` (>= 22) and `npx`; the npm packages; `tsc` in `node_modules` for the type-check gate |
 
 The rest is optional. `/la:init` detects what you have, asks before turning on anything it can't find, and
 records the choice in `living-architecture.yaml`:
@@ -177,11 +203,11 @@ which uses it:
 - [Living architecture in questions and answers](https://github.com/MotleyAI/living-architecture/blob/main/docs/living-architecture-in-questions-and-answers.md):
   the problems it solves, one by one
 - [Skills](https://github.com/MotleyAI/living-architecture/blob/main/docs/skills.md): main and helper skills
-- [Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md): `living-architecture.yaml` and the language sections of `architecture/index.yaml`
-- [Commands](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md): the `la-*` and `dr-*` commands
+- [Configuration](https://github.com/MotleyAI/living-architecture/blob/main/docs/configuration.md): `living-architecture.yaml`, `trmv.yaml` and the language sections of `architecture/index.yaml`
+- [Commands](https://github.com/MotleyAI/living-architecture/blob/main/docs/commands.md): the `la-*` and `trmv-*` commands
 - [Running the checks in CI](https://github.com/MotleyAI/living-architecture/blob/main/docs/ci.md)
-- [Deterministic refactoring](https://github.com/MotleyAI/living-architecture/blob/main/docs/deterministic-refactoring.md)
-- [Inside dr-refactor](https://github.com/MotleyAI/living-architecture/blob/main/docs/refactoring-internals.md): the libraries and processes behind it
+- [Renames and moves](https://github.com/MotleyAI/living-architecture/blob/main/docs/rename-and-move.md)
+- [Inside trmv-refactor](https://github.com/MotleyAI/living-architecture/blob/main/docs/refactoring-internals.md): the libraries and processes behind it
 - [Development](https://github.com/MotleyAI/living-architecture/blob/main/docs/development.md): working from a checkout, layout, releasing
 - [Contributing](https://github.com/MotleyAI/living-architecture/blob/main/CONTRIBUTING.md) and
   [release notes](https://github.com/MotleyAI/living-architecture/releases)

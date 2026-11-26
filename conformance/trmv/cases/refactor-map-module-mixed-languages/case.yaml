@@ -1,0 +1,16 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: trmv-mixed
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'a .py symbol entry and a .ts module entry: map-mixed-languages, the module entry routed by its path, through either
+  invoking twin'

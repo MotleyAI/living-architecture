@@ -1,0 +1,3 @@
+python:
+  source_roots: [1]
+  root_package: pkg

@@ -1,0 +1,4 @@
+la-typecheck is deprecated and will be removed in 0.15.0; run trmv-typecheck instead
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: checking typescript with tsc --noEmit
+trmv-typecheck: typescript: 1 new error(s) not in .tsc-baseline.json

@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+expect:
+  exit: 1
+golden: manual
+note: 'new behaviour: a top-level unit claimed through a root-package node and by another node is claimed twice'

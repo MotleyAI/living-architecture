@@ -1,0 +1,12 @@
+kind: neutral
+twin: python
+command: trmv-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "999.0.0"}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual
+note: the mismatch names trmv and the python twin's trmv install command at the plugin's version

@@ -1,2 +1,0 @@
-la-typecheck: checking typescript with tsc --noEmit
-la-typecheck: typescript: tsc not found in node_modules/.bin or on PATH

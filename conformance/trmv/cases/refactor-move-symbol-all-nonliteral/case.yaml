@@ -1,0 +1,19 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- f
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+note: the moved name leaves a list literal operand of a nonliteral __all__ (rope kept
+  it); the moved code follows the destination's docstring (rope put it above)
+golden: manual

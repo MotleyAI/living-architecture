@@ -1,0 +1,90 @@
+"""The shared vectors agree with the pre-restructure behaviour they were recorded from."""
+
+from __future__ import annotations
+
+import difflib
+import json
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+from trmv.contract import normalize
+
+
+def _repo_root() -> Path:
+    return next(p for p in Path(__file__).resolve().parents if (p / "shared").is_dir() and (p / "plugin").is_dir())
+
+
+SHARED = _repo_root() / "shared"
+LA_CONFIG = Path(sys.executable).parent / "la-config"
+
+
+def _load(name: str) -> dict:
+    """Vector file `name` of whichever package's contract holds it."""
+    [path] = [SHARED / package / "vectors" / name for package in ("trmv", "la") if (SHARED / package / "vectors" / name).is_file()]
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("vector", _load("repr.yaml")["cases"], ids=lambda v: v["repr"])
+def test_repr_vectors_are_python_repr(vector: dict) -> None:
+    assert repr(vector["value"]) == vector["repr"]
+
+
+@pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
+def test_yaml_vectors_are_pyyaml_safe_load(vector: dict) -> None:
+    if vector.get("error") in ("refused", "duplicate"):
+        yaml.safe_load(vector["text"])
+        return
+    if vector.get("error"):
+        with pytest.raises((yaml.YAMLError, ValueError, KeyError, IndexError, AttributeError)):
+            yaml.safe_load(vector["text"])
+        return
+    value = yaml.safe_load(vector["text"])
+    if "json" in vector:
+        assert value == json.loads(vector["json"])
+    else:
+        assert repr(normalize(value)) == vector["repr"]
+
+
+@pytest.mark.parametrize("vector", _load("yaml.yaml")["cases"], ids=lambda v: v["name"])
+def test_yaml_vectors_carry_one_expectation(vector: dict) -> None:
+    assert set(vector) - {"name", "text"} in ({"json"}, {"repr"}, {"error"}, {"error", "message"})
+    assert vector.get("error", True) is True or vector["error"] in ("refused", "duplicate")
+    assert ("message" in vector) == (vector.get("error") == "duplicate")
+
+
+@pytest.mark.parametrize("vector", _load("defaults.yaml")["cases"], ids=lambda v: v["name"])
+def test_default_vectors_through_la_config_show(vector: dict, tmp_path: Path) -> None:
+    """A mapping config also declares the current format, as the format check requires."""
+    expected = vector["resolved"]
+    if vector["config"] is not None:
+        text = vector["config"]
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            formats = yaml.safe_load((SHARED / "trmv" / "config.yaml").read_text(encoding="utf-8"))["formats"]
+            current = formats["living-architecture.yaml"][-1]
+            text = yaml.safe_dump({"format": current, **data})
+            expected = {**expected, "format": current}
+        (tmp_path / "living-architecture.yaml").write_text(text, encoding="utf-8")
+    out = subprocess.run([str(LA_CONFIG), "--root", str(tmp_path), "show"], capture_output=True, text=True, check=True)
+    assert json.loads(out.stdout) == expected
+
+
+@pytest.mark.parametrize("vector", _load("command-split.yaml")["cases"], ids=lambda v: v["name"])
+def test_command_split_vectors_are_shlex_split(vector: dict) -> None:
+    if vector.get("error"):
+        with pytest.raises(ValueError):
+            shlex.split(vector["text"])
+    else:
+        assert shlex.split(vector["text"]) == vector["words"]
+
+
+@pytest.mark.parametrize("vector", _load("diff.yaml")["cases"], ids=lambda v: v["name"])
+def test_diff_vectors_are_what_rope_prints(vector: dict) -> None:
+    old, new, path = vector["old"], vector["new"], vector["path"]
+    printed = "".join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), "a/" + path, "b/" + path))
+    assert printed == vector["diff"]

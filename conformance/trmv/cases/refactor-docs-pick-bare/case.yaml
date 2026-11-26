@@ -1,0 +1,29 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- Ds.columns
+- --new-name
+- fields
+- --docs
+- --docs-pick
+- pkg/n.py:8
+- --docs-pick
+- docs/api.md:4
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - docs/api.md
+  - pkg/m.py
+  - pkg/n.py
+golden: manual
+note: '--docs-pick PATH:LINE in a single rename: the key of an untyped request body and both plain words of a
+  prose line are rewritten and not listed; the unpicked lines stay listed'

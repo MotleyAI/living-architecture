@@ -1,0 +1,15 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --fail-fast
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: '--fail-fast stopping on an entry that fails before the rules: no rules line prints it, so the final report lists it
+  with its entry and locator'

@@ -1,0 +1,12 @@
+kind: adapter
+twin: python
+languages:
+- python
+fixture: typecheck-python
+command: la-typecheck
+env:
+  LA_FORWARDED: '1'
+expect:
+  exit: 0
+note: a process carrying LA_FORWARDED=1 prints no deprecation line
+golden: manual

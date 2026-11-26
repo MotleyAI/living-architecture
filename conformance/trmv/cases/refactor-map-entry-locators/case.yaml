@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+git:
+- commit: init
+expect:
+  exit: 2
+golden: manual
+note: 'entries that do not resolve, one per locator form (line, symbol, offset; in Python a module entry): each refusal names
+  its entry and its locator as the map writes it'

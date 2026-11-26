@@ -1,0 +1,22 @@
+specification {
+  element system
+  element node
+}
+
+model {
+  python = system 'Python' {
+    trmv = node 'type-rename-move' {
+      metadata {
+        package 'trmv.core'
+      }
+      engine = node 'Engine'
+    }
+    la = node 'living-architecture' {
+      metadata {
+        package 'living_architecture.cli'
+      }
+    }
+
+    la -> trmv.engine
+  }
+}

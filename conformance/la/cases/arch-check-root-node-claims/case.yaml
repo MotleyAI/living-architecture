@@ -1,0 +1,8 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+expect:
+  exit: 0
+golden: manual
+note: 'new behaviour: a node on the root package claims the top-level units under it; its nested element maps by convention'

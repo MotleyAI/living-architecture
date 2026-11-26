@@ -1,0 +1,10 @@
+kind: neutral
+command: trmv-doctor
+args: [--plugin, plugin]
+git:
+- write:
+    plugin/.claude-plugin/plugin.json: '{"version": "<VERSION>", "x": NaN}'
+normalize: [version]
+expect:
+  exit: 1
+golden: manual

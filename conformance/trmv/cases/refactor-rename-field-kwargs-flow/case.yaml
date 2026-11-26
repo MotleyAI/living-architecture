@@ -1,0 +1,18 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+- --without
+- pkg/q.py:12
+fixture: refactor-kwargs
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'field renames follow **kwargs carriers into the model: carrier call keywords (a chain, a forwarding subclass
+  constructor, dict literals holding **kw, a nested scope shadowing the name), a dict literal unpacked into a carrier and
+  the key-form strings; a carrier into another class is unchanged'

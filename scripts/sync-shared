@@ -1,49 +1,38 @@
 #!/usr/bin/env python3
-"""Vendor shared/ into each twin's contract snapshot (with CONTRACT_HASH).
+"""Vendor each package's shared/<package>/ into both its twins' contract snapshots (each with its CONTRACT_HASH).
 
 Usage: scripts/sync-shared [--check]   (--check: exit 1 if any copy is stale, writing nothing)
 """
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 import sys
 from pathlib import Path
 
+from contract_hash import HASH_FILE, compute_hash, contract_files
+
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "shared"
-HASH_FILE = "CONTRACT_HASH"
-SNAPSHOTS = [ROOT / "python" / "src" / "living_architecture" / "contract" / "data", ROOT / "node" / "src" / "contract" / "data"]
-
-
-def _files(root: Path) -> list[Path]:
-    return sorted(
-        (p for p in root.rglob("*") if p.is_file() and p.name != HASH_FILE),
-        key=lambda p: p.relative_to(root).as_posix().encode("utf-8"),
-    )
-
-
-def compute_hash(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in _files(root):
-        data = path.read_bytes()
-        executable = b"1" if path.stat().st_mode & 0o111 else b"0"
-        rel = path.relative_to(root).as_posix().encode("utf-8")
-        digest.update(b"\0".join([rel, executable, str(len(data)).encode("ascii"), data]))
-    return digest.hexdigest()
+# Each twin's snapshot, by the package whose contract it vendors.
+SNAPSHOTS = {
+    ROOT / "python" / "trmv" / "src" / "trmv" / "contract" / "data": "trmv",
+    ROOT / "python" / "la" / "src" / "living_architecture" / "contract" / "data": "la",
+    ROOT / "node" / "trmv" / "src" / "contract" / "data": "trmv",
+    ROOT / "node" / "la" / "src" / "contract" / "data": "la",
+}
 
 
 def _tree(root: Path) -> dict[str, tuple[bool, bytes]]:
     if not root.is_dir():
         return {}
-    return {p.relative_to(root).as_posix(): (bool(p.stat().st_mode & 0o111), p.read_bytes()) for p in _files(root)}
+    return {p.relative_to(root).as_posix(): (bool(p.stat().st_mode & 0o111), p.read_bytes()) for p in contract_files(root)}
 
 
-def _snapshot_is_current(snapshot: Path, expected_hash: str) -> bool:
+def _snapshot_is_current(snapshot: Path, source: Path, expected_hash: str) -> bool:
     hash_path = snapshot / HASH_FILE
     recorded = hash_path.read_text(encoding="utf-8").strip() if hash_path.is_file() else None
-    return _tree(snapshot) == _tree(SHARED) and recorded == expected_hash
+    return _tree(snapshot) == _tree(source) and recorded == expected_hash
 
 
 def main(argv: list[str]) -> int:
@@ -51,17 +40,17 @@ def main(argv: list[str]) -> int:
     if argv and not check:
         print(__doc__, file=sys.stderr)
         return 2
-    expected = compute_hash(SHARED)
-    stale = [s for s in SNAPSHOTS if not _snapshot_is_current(s, expected)]
+    expected = {package: compute_hash(SHARED / package) for package in sorted(set(SNAPSHOTS.values()))}
+    stale = [s for s, pkg in SNAPSHOTS.items() if not _snapshot_is_current(s, SHARED / pkg, expected[pkg])]
     if check:
         for path in stale:
             print(f"stale: {path.relative_to(ROOT)}; run scripts/sync-shared", file=sys.stderr)
         return 1 if stale else 0
-    for snapshot in SNAPSHOTS:
+    for snapshot, package in SNAPSHOTS.items():
         if snapshot.exists():
             shutil.rmtree(snapshot)
-        shutil.copytree(SHARED, snapshot)
-        (snapshot / HASH_FILE).write_text(expected + "\n", encoding="utf-8")
+        shutil.copytree(SHARED / package, snapshot)
+        (snapshot / HASH_FILE).write_text(expected[package] + "\n", encoding="utf-8")
     for path in stale:
         print(f"synced: {path.relative_to(ROOT)}")
     return 0

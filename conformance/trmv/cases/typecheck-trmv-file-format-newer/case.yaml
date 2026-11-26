@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: trmv-typecheck
+expect:
+  exit: 2
+note: a newer trmv file format names it as the trmv version to upgrade to
+golden: manual

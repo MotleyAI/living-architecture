@@ -1,0 +1,146 @@
+# Per-language facts. `markers` are the repo-root files that, with a file of the language, make it a repo language;
+# `executables` are what the doctors require on PATH when it is one; `compliance_checks` are its trmv-compliance check
+# ids; `declaration_globs` and `excluded_dirs` (directory names) are never expanded or checked by trmv-*; `local_bin`
+# is where the repo installs its checker; `baseline_file` is the checker's committed baseline. `runner` runs a command through the language's twin of `{package}` at `{version}`
+# (the command is appended); `install` is, per package, the hint shown when that twin is unreachable; `unit_separator` joins a unit's
+# segments (`pkg.api`, `src/api`); `imports_non_source` means its imports can reach files of no language (JSON
+# modules), so la-affected-tests computes it for a change to such a file. `checker_patch_versions` (python) lists
+# the basedpyright versions trmv-typecheck's pyright#11919 patch is verified for; any other installed version is
+# refused. `checker_export_versions` (python) lists the basedpyright versions the occurrence-export preload of
+# trmv-refactor's language server is verified for; `cache_dir_variable` (python) names the environment variable holding
+# the directory of trmv-refactor's occurrence-index cache. `any_type` and `top_type` spell the language's any type and its safe top type in explicit-any findings.
+# `root_members` (python) are the members of the implicit root class `object` over every supported Python version (as
+# the typeshed of the shipped basedpyright declares them), which a member rename may not take.
+# `string_member_calls` are the calls that name a member by a string, which a rename rewrites and attr-blindspot
+# checks: `call` names the form; the callee resolves to it when its declaration is `qualname` in `module` (python)
+# or when it is spelled `call` with a head declared outside the project's sources (typescript); `syntax` is the
+# callee's dotted tail an unresolved callee must still match (python); `object` and `member` are the argument
+# positions of the object and its member's name, `target` the position of a dotted target string (python); `silent`
+# marks a call whose miss raises no error, and `default` the argument position whose presence makes it so (python).
+# `name_decorators` (python) are the decorators whose positional arguments each name a member of the decorated
+# method's class; `name_reads` (python) are the attributes holding a class's member names, read by a string in the
+# listed `shapes` (`subscript`: `X.attr["name"]`, `get`: `X.attr.get("name")`, `in`: `"name" in X.attr` and `not in`);
+# both match by the declaration `qualname` in `module`. `name_class_values` (python) are the class-body assignments
+# whose value names members of the class, in the listed `shapes` (`element` of a tuple, list or set display, the
+# whole `string`, a dict display's `key`).
+# `fixture_decorators` are the decorators, as dotted names, under which a method is a test fixture: a stand-in a
+# rename leaves by default.
+# Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative path;
+# case-sensitive; `*` stays within one segment; `**` is zero or more whole segments).
+
+python:
+  markers: [pyproject.toml, setup.py]
+  source_extensions: [.py]
+  files_label: .py
+  imports_non_source: false
+  unit_separator: .
+  test_globs:
+    - '**/tests/**/*'
+    - '**/test/**/*'
+    - '**/test_*'
+    - '**/*_test.py'
+    - '**/conftest.py'
+  declaration_globs: []
+  excluded_dirs: [.git, .hg, .mypy_cache, .pytest_cache, .ropeproject, .svn, .tox, .venv, _svn, venv]
+  compliance_checks: [untyped-def, unannotated-attr, explicit-any, mock, rope-walk, attr-blindspot, string-blindspot]
+  string_member_calls:
+    - {call: getattr, module: builtins, qualname: getattr, syntax: getattr, object: 0, member: 1, default: 2}
+    - {call: setattr, module: builtins, qualname: setattr, syntax: setattr, object: 0, member: 1}
+    - {call: hasattr, module: builtins, qualname: hasattr, syntax: hasattr, object: 0, member: 1, silent: true}
+    - {call: delattr, module: builtins, qualname: delattr, syntax: delattr, object: 0, member: 1}
+    - {call: pytest.MonkeyPatch.setattr, module: _pytest.monkeypatch, qualname: MonkeyPatch.setattr, syntax: setattr,
+       object: 0, member: 1, target: 0}
+    - {call: pytest.MonkeyPatch.delattr, module: _pytest.monkeypatch, qualname: MonkeyPatch.delattr, syntax: delattr,
+       object: 0, member: 1, target: 0}
+    - {call: unittest.mock.patch.object, module: unittest.mock, qualname: _patcher.object, syntax: patch.object,
+       object: 0, member: 1}
+    - {call: pytest_mock.MockerFixture.patch.object, module: pytest_mock.plugin, qualname: MockerFixture._Patcher.object,
+       syntax: patch.object, object: 0, member: 1}
+    - {call: unittest.mock.patch, module: unittest.mock, qualname: patch, syntax: patch, target: 0}
+    - {call: pytest_mock.MockerFixture.patch, module: pytest_mock.plugin, qualname: MockerFixture.patch, syntax: patch,
+       target: 0}
+  name_decorators:
+    - {call: pydantic.field_validator, module: pydantic.functional_validators, qualname: field_validator}
+    - {call: pydantic.field_serializer, module: pydantic.functional_serializers, qualname: field_serializer}
+  name_reads:
+    - {attribute: model_fields, module: pydantic.main, qualname: BaseModel.model_fields, shapes: [subscript, get, in]}
+    - {attribute: model_fields_set, module: pydantic.main, qualname: BaseModel.model_fields_set, shapes: [in]}
+  name_class_values:
+    - {name: __slots__, shapes: [element, string, key]}
+    - {name: __match_args__, shapes: [element]}
+  fixture_decorators: [pytest.fixture, pytest_asyncio.fixture]
+  any_type: Any
+  top_type: object
+  executables: []
+  comment_prefix: '#'
+  suppression: '# pyright: ignore[<rule>]'
+  local_bin: .venv/bin
+  baseline_file: .basedpyright/baseline.json
+  checker_patch_versions: ['1.40.2']
+  checker_export_versions: ['1.40.2']
+  cache_dir_variable: LA_CACHE_DIR
+  root_members: [__annotations__, __class__, __delattr__, __dict__, __dir__, __doc__, __eq__, __format__,
+                 __getattribute__, __getstate__, __hash__, __init__, __init_subclass__, __module__, __ne__, __new__,
+                 __reduce__, __reduce_ex__, __repr__, __setattr__, __sizeof__, __str__, __subclasshook__]
+  runner: uvx --from {package}=={version}
+  install:
+    type-rename-move: uv tool install type-rename-move=={version}
+    living-architecture: uv tool install living-architecture=={version} --with-executables-from type-rename-move
+
+typescript:
+  markers: [tsconfig.json]
+  source_extensions: [.ts, .tsx, .mts, .cts, .js, .jsx, .mjs, .cjs]
+  files_label: TS/JS
+  imports_non_source: true
+  unit_separator: /
+  test_globs:
+    - '**/*.test.*'
+    - '**/*.spec.*'
+    - '**/__tests__/**/*'
+    - '**/__mocks__/**/*'
+    - '**/tests/**/*'
+    - '**/test/**/*'
+  declaration_globs: ['**/*.d.ts', '**/*.d.mts', '**/*.d.cts']
+  excluded_dirs: [node_modules]
+  compliance_checks: [tsconfig, explicit-any, untyped-def, mock, attr-blindspot, string-blindspot]
+  string_member_calls:
+    - {call: vi.spyOn, object: 0, member: 1}
+    - {call: jest.spyOn, object: 0, member: 1}
+    - {call: Reflect.get, object: 0, member: 1}
+    - {call: Reflect.set, object: 0, member: 1}
+    - {call: Reflect.has, object: 0, member: 1}
+    - {call: Reflect.deleteProperty, object: 0, member: 1}
+    - {call: Reflect.defineProperty, object: 0, member: 1}
+    - {call: Reflect.getOwnPropertyDescriptor, object: 0, member: 1}
+    - {call: Object.defineProperty, object: 0, member: 1}
+    - {call: Object.getOwnPropertyDescriptor, object: 0, member: 1}
+  fixture_decorators: []
+  # Mock calls naming a module by path: the framework receivers (a named import from `module`, or the unshadowed global
+  # of that name) and their calls taking a module path as argument 0, with the factory's argument index where one is taken.
+  mock_receivers:
+    - {name: vi, module: vitest}
+    - {name: jest, module: '@jest/globals'}
+  mock_module_calls:
+    - {call: mock, factory: 1}
+    - {call: doMock, factory: 1}
+    - {call: unstable_mockModule, factory: 1}
+    - {call: unmock}
+    - {call: doUnmock}
+    - {call: dontMock}
+    - {call: setMock}
+    - {call: importActual}
+    - {call: importMock}
+    - {call: requireActual}
+    - {call: requireMock}
+    - {call: createMockFromModule}
+  any_type: any
+  top_type: unknown
+  executables: [node, npx]
+  comment_prefix: '//'
+  suppression: '// @ts-expect-error — <reason>'
+  local_bin: node_modules/.bin
+  baseline_file: .tsc-baseline.json
+  runner: npx -y -p {package}@{version}
+  install:
+    type-rename-move: npm install -g type-rename-move@{version}
+    living-architecture: npm install -g living-architecture@{version} type-rename-move@{version}

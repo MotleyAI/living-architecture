@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- generate-map
+- words.yaml
+fixture: refactor-words
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'no declaration holds a table word but the table has an entry: the map is that entry, exit 0'

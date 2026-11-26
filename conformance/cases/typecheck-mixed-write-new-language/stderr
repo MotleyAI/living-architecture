@@ -1,4 +1,0 @@
-la-typecheck: checking python with basedpyright
-la-typecheck: python: .basedpyright/baseline.json exists, skipped
-la-typecheck: checking typescript with tsc --noEmit
-la-typecheck: typescript: wrote .tsc-baseline.json

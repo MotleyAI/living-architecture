@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+command: trmv-mock-lint
+args:
+- --base
+- main
+- tests/test_a.py
+git:
+- write:
+    tests/test_a.py: "from unittest.mock import MagicMock, Mock\n\n\ndef test_a() -> None:\n    m = Mock()\n    assert m\n"
+- commit: base
+- origin:
+  - main
+- branch: feat
+- write:
+    tests/test_a.py: "from unittest.mock import MagicMock, Mock\n\n\nX = 1\n\n\ndef test_a() -> None:\n    m = Mock()\n  \
+      \  n = MagicMock()\n    assert m, n\n"
+expect:
+  exit: 1
+golden: manual
+note: '--base main: the base''s Mock() moved down three lines is not printed, only the added MagicMock()'

@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename-map, renames.yaml, --docs, --without, 'pkg/two.py:9']
+  typescript: [rename-map, renames.yaml, --docs, --without, 'src/two.ts:9']
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: '--docs: a code-marked mention outside every class declaring the old name (module level, a function, a class
+  without the member) is rewritten when every declaration of the old name in its file is renamed, and listed beside
+  one the run leaves unchanged; a plain word there is listed'

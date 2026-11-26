@@ -1,2 +1,0 @@
-format: <FORMAT>
-conventions: {exempt: ['a/*', 'b']}

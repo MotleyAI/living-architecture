@@ -1,0 +1,37 @@
+{
+  "format": "<FORMAT>",
+  "exempt": [],
+  "tracker": "linear",
+  "openspec": true,
+  "architecture": false,
+  "reviewers": {
+    "codex": false,
+    "sonar": {
+      "project_key": "o_r"
+    }
+  },
+  "issue_key_pattern": "[A-Z][A-Z0-9]+-\\d+",
+  "commands": {
+    "test": null,
+    "lint": null,
+    "typecheck": {
+      "python": "basedpyright",
+      "typescript": "tsc --noEmit"
+    }
+  },
+  "refactor": {
+    "python": {
+      "moved_module_stub": null
+    },
+    "string_forms": []
+  },
+  "conventions": {
+    "text_ratio_max": 0.15,
+    "rules": [
+      "import-not-top",
+      "text-ratio",
+      "composite-assert",
+      "raises-single-throw"
+    ]
+  }
+}

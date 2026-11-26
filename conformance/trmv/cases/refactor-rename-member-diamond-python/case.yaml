@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename
+- --file
+- pkg/m.py
+- --symbol
+- A.old
+- --new-name
+- next
+- --with
+- pkg/m.py:7
+git:
+- commit: init
+expect:
+  exit: 0
+note: 'a method inherited from two bases that both declare it, the other base''s declaration renamed with --with: the renamed
+  set is no conflict'

@@ -13,45 +13,88 @@ from typing import Any
 TOOL_PATHSPECS = (
     "shared",
     "conformance",
-    "python/src",
-    "node/src",
+    "python/trmv/src",
+    "python/la/src",
+    "node/trmv/src",
+    "node/la/src",
     "node/scripts",
+    "node/trmv/scripts",
+    "node/la/scripts",
     ":(glob)node/tsconfig*.json",
+    ":(glob)node/*/tsconfig*.json",
 )
-PACKAGE = "living-architecture"
+PACKAGES = ("type-rename-move", "living-architecture")
+TRMV = "type-rename-move"
+_PYPI_PIN = re.compile(rf"^{TRMV}>=[^,]+,<\S+$")
+
+
+def series(version: str) -> tuple[str, str]:
+    """The `X.Y.0` base of `version`'s minor series and the next minor `X.(Y+1)`."""
+    major, minor = version.split(".")[:2]
+    return f"{major}.{minor}.0", f"{major}.{int(minor) + 1}"
+
+
+def pypi_pin(version: str) -> str:
+    base, upper = series(version)
+    return f"{TRMV}>={base},<{upper}"
+
+
+def tilde_pin(version: str) -> str:
+    return f"~{series(version)[0]}"
 
 
 def _set_pyproject(data: dict[str, Any], version: str) -> None:
-    data["project"]["version"] = version
+    project = data.get("project")
+    if project is None:
+        return
+    project["version"] = version
+    project["dependencies"] = [pypi_pin(version) if _PYPI_PIN.match(d) else d for d in project.get("dependencies", [])]
 
 
 def _set_uv_lock(data: dict[str, Any], version: str) -> None:
     for package in data["package"]:
-        if package["name"] == PACKAGE:
+        if package["name"] in PACKAGES:
             package["version"] = version
 
 
 def _set_package_json(data: dict[str, Any], version: str) -> None:
-    data["version"] = version
+    if "version" in data:
+        data["version"] = version
+    if TRMV in data.get("dependencies", {}):
+        data["dependencies"][TRMV] = tilde_pin(version)
 
 
 def _set_package_lock(data: dict[str, Any], version: str) -> None:
-    data["version"] = data["packages"][""]["version"] = version
+    if "version" in data:
+        data["version"] = version
+    for entry in data["packages"].values():
+        if entry.get("name") in PACKAGES:
+            _set_package_json(entry, version)
 
 
-# Tool inputs compared as parsed data, with the package's own version fields set to the release's.
+# Tool inputs compared as parsed data, with each package's own version fields and la's pin on trmv set to the release's.
 MANIFESTS: dict[str, tuple[Callable[[str], dict[str, Any]], Callable[[dict[str, Any], str], None]]] = {
     "python/pyproject.toml": (tomllib.loads, _set_pyproject),
+    "python/trmv/pyproject.toml": (tomllib.loads, _set_pyproject),
+    "python/la/pyproject.toml": (tomllib.loads, _set_pyproject),
     "python/uv.lock": (tomllib.loads, _set_uv_lock),
     "node/package.json": (json.loads, _set_package_json),
+    "node/trmv/package.json": (json.loads, _set_package_json),
+    "node/la/package.json": (json.loads, _set_package_json),
     "node/package-lock.json": (json.loads, _set_package_lock),
 }
 _RELEASE = re.compile(r"(\d+)\.(\d+)\.(\d+)", re.ASCII)
-FORMATS_FILE = "shared/config.yaml"
+FORMATS_FILE = "shared/trmv/config.yaml"
+# Before the split, one formats list for living-architecture.yaml.
+SINGLE_FORMATS_FILE = "shared/config.yaml"
+SINGLE_FORMATS_CONFIG = "living-architecture.yaml"
 _V = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
 _TAIL = r"[ \t]*(?:#.*)?"
-_FORMATS = re.compile(rf"formats: \[({_V}(?:, {_V})*)?\]{_TAIL}", re.ASCII)
+_LIST = rf"\[({_V}(?:, {_V})*)?\]"
+_FORMATS_KEY = "formats:"
+_FORMATS = re.compile(rf"formats: {_LIST}{_TAIL}", re.ASCII)
 _FORMAT = re.compile(rf"format: (?:({_V})|'({_V})'|\"({_V})\"){_TAIL}", re.ASCII)
+_FILE_FORMATS = re.compile(rf"  ([\w.-]+): {_LIST}{_TAIL}", re.ASCII)
 
 
 def git(root: Path, *args: str) -> str:
@@ -81,11 +124,15 @@ def _show(root: Path, rev: str, path: str) -> str | None:
     return shown.stdout if shown.returncode == 0 else None
 
 
+def _lines(text: str) -> list[str]:
+    return [line.rstrip("\r") for line in text.split("\n")]
+
+
 def parse_formats(text: str) -> list[str] | None:
-    """The released formats of a `shared/config.yaml` text: its one-line `formats` list, else its single `format`;
-    None when it declares neither in that form."""
-    lines = [line.rstrip("\r") for line in text.split("\n")]
-    for key, pattern in (("formats:", _FORMATS), ("format:", _FORMAT)):
+    """The released formats of a pre-split `shared/config.yaml` text: its one-line `formats` list, else its single
+    `format`; None when it declares neither in that form."""
+    lines = _lines(text)
+    for key, pattern in ((_FORMATS_KEY, _FORMATS), ("format:", _FORMAT)):
         found = [line for line in lines if line.startswith(key)]
         if found:
             match = pattern.fullmatch(found[0]) if len(found) == 1 else None
@@ -97,16 +144,43 @@ def parse_formats(text: str) -> list[str] | None:
     return None
 
 
-def _formats_at(root: Path, rev: str) -> list[str] | str:
-    """The released formats at `rev`, [] without the file there; else why they cannot be read."""
-    listed = subprocess.run(
-        ["git", "ls-tree", "--name-only", rev, "--", FORMATS_FILE], cwd=root, capture_output=True, text=True, check=False
-    )
-    if listed.returncode == 0 and not listed.stdout:
-        return []
-    shown = subprocess.run(["git", "show", f"{rev}:{FORMATS_FILE}"], cwd=root, capture_output=True, text=True, check=False)
-    formats = parse_formats(shown.stdout) if listed.returncode == shown.returncode == 0 else None
-    return f"cannot read the released formats of {rev} from {FORMATS_FILE}" if formats is None else formats
+def parse_file_formats(text: str) -> dict[str, list[str]] | None:
+    """The per-file released formats of a `shared/trmv/config.yaml` text: its `formats:` block of one-line lists, one
+    per file; None when it has no such block."""
+    lines = _lines(text)
+    starts = [i for i, line in enumerate(lines) if line.startswith(_FORMATS_KEY)]
+    if len(starts) != 1 or lines[starts[0]].split("#")[0].strip() != _FORMATS_KEY:
+        return None
+    formats: dict[str, list[str]] = {}
+    for line in lines[starts[0] + 1:]:
+        if not line.startswith(" ") or not line.strip():
+            break
+        match = _FILE_FORMATS.fullmatch(line)
+        if match is None or match[1] in formats:
+            return None
+        formats[match[1]] = match[2].split(", ") if match[2] else []
+    return formats or None
+
+
+def _exists(root: Path, rev: str, path: str) -> bool | None:
+    """Whether `path` is in `rev`'s tree; None when git cannot tell."""
+    listed = subprocess.run(["git", "ls-tree", "--name-only", rev, "--", path], cwd=root, capture_output=True,
+                            text=True, check=False)
+    return bool(listed.stdout) if listed.returncode == 0 else None
+
+
+def _file_formats_at(root: Path, rev: str) -> dict[str, list[str]] | str:
+    """The released formats per config file at `rev`, {} without a formats file; else why they cannot be read."""
+    for path, parse in ((FORMATS_FILE, parse_file_formats), (SINGLE_FORMATS_FILE, parse_formats)):
+        exists = _exists(root, rev, path)
+        if exists is False:
+            continue
+        text = _show(root, rev, path) if exists else None
+        parsed = None if text is None else parse(text)
+        if parsed is None:
+            return f"cannot read the released formats of {rev} from {path}"
+        return parsed if isinstance(parsed, dict) else {SINGLE_FORMATS_CONFIG: parsed}
+    return {}
 
 
 def _listed(formats: list[str]) -> str:
@@ -114,23 +188,24 @@ def _listed(formats: list[str]) -> str:
 
 
 def formats_problem(root: Path, version: str, previous: str) -> str | None:
-    """Why HEAD's released formats are neither `previous`'s nor those followed by exactly `version`, or None."""
-    before = _formats_at(root, previous)
+    """Why some file's released formats at HEAD are neither `previous`'s nor those followed by exactly `version`."""
+    before = _file_formats_at(root, previous)
     if isinstance(before, str):
         return before
-    after = _formats_at(root, "HEAD")
+    after = _file_formats_at(root, "HEAD")
     if isinstance(after, str):
         return after
-    if after in (before, [*before, version]):
-        return None
-    return (
-        f"the released formats changed from {_listed(before)} at {previous} to {_listed(after)}; a release may only"
-        f" append its own version {version}"
-    )
+    problems = [
+        f"the released formats of {name} changed from {_listed(old)} at {previous} to {_listed(new)}; a release may"
+        f" only append its own version {version}"
+        for name in sorted({*before, *after})
+        if (new := after.get(name, [])) not in ((old := before.get(name, [])), [*old, version])
+    ]
+    return "; ".join(problems) or None
 
 
 def changed_tool_inputs(root: Path, version: str, previous: str) -> list[str]:
-    """Tool inputs that differ between `previous` and HEAD, manifests beyond their own version."""
+    """Tool inputs that differ between `previous` and HEAD, manifests beyond their own versions and la's pin."""
     listed = git(root, "diff", "--name-only", "--no-renames", "-z", previous, "HEAD", "--", *TOOL_PATHSPECS)
     changed = [path for path in listed.split("\0") if path]
     for path, (parse, set_version) in MANIFESTS.items():

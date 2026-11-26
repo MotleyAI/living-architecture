@@ -1,11 +1,13 @@
 # Conformance corpus
 
-Each twin's suite runs every applicable case under `cases/` against its installed commands and compares the
-exit code, stdout and stderr byte-for-byte. `INVENTORY.md` maps every output branch to its cases.
+One case tree per package: `trmv/cases/` invokes only `trmv-*` commands, `la/cases/` only `la-*` commands; the two
+share `fixtures/`, and case ids are unique across both. Each package's suite runs every applicable case of its tree
+against the installed commands and compares the exit code, stdout and stderr byte-for-byte. Each tree's
+`INVENTORY.md` maps every output branch of its commands to its cases.
 
 ## A case
 
-`cases/<id>/case.yaml`:
+`<package>/cases/<id>/case.yaml`:
 
 ```yaml
 kind: neutral | paired | adapter   # paired: one run per language; adapter: one language
@@ -13,7 +15,8 @@ languages: [python]                # the fixture languages; required unless neut
 twin: python | typescript          # only this twin invokes the command (forwarding and facts cases)
 other_twin: absent                 # the other twin's bin dir is kept off PATH
 command: la-arch-check
-args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<ROOT>` are substituted
+args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<TRMV_CONTRACT_HASH>`, `<ROOT>`
+                                   # are substituted
                                    # paired: or {python: [...], typescript: [...]}, one list per language
 cwd: sub/dir                       # relative to the repo; default: the repo root
 stdin: text
@@ -27,7 +30,7 @@ bins: [{dir: name, position: before | after, files: {exe: text}, nonexec: [exe],
 git: none | [step, ...]            # default: `git init -b main` with no commits
 gh: [{match: [argv tokens], stdout: text-or-json, stderr: text, exit: 0}]   # the fake `gh`; first match wins
   # or {match: [...], responses: [{stdout: ..., stderr: ..., exit: 0}, ...]}: served in call order, the last repeating
-normalize: [version, contract_hash, {pattern: regex, replace: text}]
+normalize: [version, contract_hash, trmv_contract_hash, {pattern: regex, replace: text}]
 expect:
   exit: 0
   stdout: ignore | json | {contains: [text]}   # omitted: byte golden; json: equal as a JSON value
@@ -38,6 +41,10 @@ expect:
 golden: manual                     # hand-written goldens; the update mode never writes them
 note: why this case exists
 ```
+
+The tree decides the package: `<VERSION>` is its version, `<CONTRACT_HASH>` its contract's hash (`contract_hash`
+normalizes it back), and the runner refuses a case whose command is not in its package's manifest.
+`<TRMV_CONTRACT_HASH>` is always trmv's (normalized by `trmv_contract_hash`), for la's two-hash identity line.
 
 `<MAJOR>` and `<MINOR>` are the installed version's first two components as written, substituted wherever
 `<VERSION>` is (args, env, fake executables, `write:` steps). A golden that would show the installed series uses a
@@ -60,7 +67,7 @@ listed overlay to one repo. Goldens are `stdout`, `stderr`, `git-status` and `fi
 
 `LA_CONFORMANCE_TWIN` (`python`, the default, or `typescript`) picks the invoking twin; `LA_NODE_BIN_DIR`
 holds the npm twin's commands. A twin's own run takes the cases whose fixture languages are none or only its
-own and whose command it implements natively (`native` in `shared/cli.yaml`). `LA_CONFORMANCE_CROSS=1` runs
+own and whose command it implements natively (`native` in `shared/<package>/cli.yaml`). `LA_CONFORMANCE_CROSS=1` runs
 every case. A case with `twin:` runs only through that twin, and, unless it sets `other_twin: absent`, only
 when every fixture language's twin has known commands. `npm run conformance` in `node/` runs the npm
 twin's own cases; `scripts/conformance-cross` runs every case through each twin, or through one with
@@ -70,7 +77,8 @@ twin's own cases; `scripts/conformance-cross` runs every case through each twin,
 
 Commands run with `LC_ALL=C`, `TZ=UTC`, `COLUMNS=80`, a fixed git identity and date, an empty `HOME`, a
 fake `gh`, and no network. PATH holds the fake `gh`, the `before` bins, the invoking twin's bin dir, the other
-twin's bin dir, the `after` bins and the host tools minus every manifest command, `npx` and `uvx`. The
+twin's bin dir (each with both packages' commands), the `after` bins and the host tools minus every command of
+both manifests, `npx` and `uvx`. The
 temporary root is normalized to `<ROOT>`; the repo is `<ROOT>/repo` and `TMPDIR` is `<ROOT>/tmp`.
 
 ## Goldens

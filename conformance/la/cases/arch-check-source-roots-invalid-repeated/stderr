@@ -1,0 +1,1 @@
+arch_check: architecture/index.yaml: source_roots entries 'a/src' and 'a/src' overlap

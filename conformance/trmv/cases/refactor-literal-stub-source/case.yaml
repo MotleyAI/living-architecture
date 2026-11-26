@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename, --file, pkg/c.py, --symbol, "Kind2['formula']", --new-name, expression]
+  typescript: [--apply, rename, --file, src/c.ts, --symbol, "Kind2['formula']", --new-name, expression]
+fixture: refactor-pair
+git:
+- commit: init
+expect:
+  exit: 1
+  git_status: true
+golden: manual
+note: 'a constant declared only in a stub (.pyi, .d.ts) is no source: its literal is never rewritten and the call site is a literal-unresolved blind spot; exit 1, nothing written'

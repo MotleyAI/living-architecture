@@ -1,0 +1,10 @@
+kind: neutral
+command: la-arch-check
+expect:
+  exit: 2
+  stderr:
+    contains:
+    - architecture/index.yaml
+    - source_roots
+golden: manual
+note: source_roots is Python-only; a typescript section setting it is refused

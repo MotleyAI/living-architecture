@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- move-symbol
+- --file
+- pkg/a.py
+- --symbol
+- VALUE
+- --dest
+- pkg/b.py
+git:
+- commit: init
+expect:
+  exit: 0
+  stdout: ignore
+  files:
+  - pkg/a.py
+  - pkg/b.py
+golden: manual
+note: the region's upward extension over comment lines stops at the file header (a shebang, a coding
+  declaration), which stays in the source

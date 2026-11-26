@@ -1,0 +1,9 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: la-typecheck
+expect:
+  exit: 1
+note: 'the alias: stdout and exit of typecheck-trmv-python-new-errors, its stderr after one deprecation line'
+golden: manual

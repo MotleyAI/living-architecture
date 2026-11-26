@@ -1,0 +1,1 @@
+FAIL: the trmv-doctor on PATH reports typescript <VERSION> 0000000000000000000000000000000000000000000000000000000000000000, but la <VERSION> needs typescript <VERSION> <TRMV_CONTRACT_HASH>; install la with its trmv: npm install -g living-architecture@<VERSION> type-rename-move@<VERSION>

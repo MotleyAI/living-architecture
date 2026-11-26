@@ -1,3 +1,0 @@
-decoy: la-doctor --twin
-uvx --from living-architecture==<VERSION> la-doctor --twin
-uvx --from living-architecture==<VERSION> dr-mock-lint -- a.py

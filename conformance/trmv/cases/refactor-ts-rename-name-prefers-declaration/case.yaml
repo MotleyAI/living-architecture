@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/order.ts
+- --symbol
+- wrap.<locals>.foo
+- --new-name
+- bar
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/order.ts
+golden: manual
+note: a local by its path (the const inside wrap), not the import binding of the same name

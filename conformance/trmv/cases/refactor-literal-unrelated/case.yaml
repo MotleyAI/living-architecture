@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- --apply
+- rename
+- --file
+- pkg/kinds.py
+- --symbol
+- DriftKind['edit_model']
+- --new-name
+- edit_master
+- --docs
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - pkg/kinds.py
+  - pkg/other.py
+golden: manual
+note: 'equal strings the checker does not type by DriftKind are untouched: another Literal''s member, a str variable and
+  argparse choices are listed with or without --docs; the argument the checker types by the other Literal is not'

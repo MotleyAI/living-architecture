@@ -1,0 +1,29 @@
+kind: neutral
+languages:
+- python
+- typescript
+fixture: trmv-mixed
+golden: manual
+twin: typescript
+other_twin: absent
+command: trmv-mock-lint
+args:
+- web/a.test.ts
+- tests/test_a.py
+bins:
+- dir: pypi-twin
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "python <VERSION> <CONTRACT_HASH>"
+    trmv-mock-lint: |
+      #!/bin/sh
+      echo "pypi-twin: trmv-mock-lint pwd=$(pwd) forwarded=$LA_FORWARDED args=$*" >> <ROOT>/repo/probe.log
+      echo "tests/test_a.py:2: fake pypi finding"
+      exit 1
+expect:
+  exit: 1
+  files:
+  - probe.log
+note: 'invoked through the npm twin: the PyPI twin gets only the Python files; the Python block still prints first'

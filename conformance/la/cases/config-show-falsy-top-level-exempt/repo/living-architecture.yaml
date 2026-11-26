@@ -1,0 +1,4 @@
+format: 0.14.0
+exempt: []
+conventions: {rules: []}
+reviewers: {codex: false}

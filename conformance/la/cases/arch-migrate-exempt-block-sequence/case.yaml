@@ -1,0 +1,8 @@
+kind: neutral
+command: la-arch-migrate
+expect:
+  exit: 0
+  files:
+  - living-architecture.yaml
+note: a block exempt entry moves verbatim, comments included, dedented to after the format line
+golden: manual

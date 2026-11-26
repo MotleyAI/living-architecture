@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Node-only acceptance: the packed npm twin, installed into an isolated prefix, runs the TypeScript flow on
+# Node-only acceptance: both packed npm twins, installed into an isolated prefix, runs the TypeScript flow on
 # acceptance/node-only/repo while `python`, `python3`, `uv` and `uvx` are trapped; any call to them fails the run.
 #
 # Usage: scripts/acceptance-node-only   (needs node >= 22, npm, git and network for npm installs)
@@ -9,8 +9,8 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 TRAP_LOG=$WORK/trap.log
-COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-typecheck la-check-conventions la-count-comments
-  dr-compliance dr-mock-lint dr-refactor)
+COMMANDS=(la-doctor la-config la-arch-scaffold la-arch-check la-check-conventions la-count-comments
+  trmv-doctor trmv-config trmv-typecheck trmv-compliance trmv-mock-lint trmv-refactor)
 
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf 'acceptance-node-only: %s\n' "$*" >&2; exit 1; }
@@ -32,9 +32,10 @@ printf '#!/bin/sh\nexit 0\n' > "$WORK/stub/gh"
 chmod +x "$WORK/stub/gh"
 export PATH="$WORK/trap:$WORK/prefix/bin:$PATH:$WORK/stub"
 
-step "pack the npm twin and install it into an isolated prefix"
-(cd "$ROOT/node" && npm ci --no-audit --no-fund && npm run build && npm pack --pack-destination "$WORK")
-npm install -g --no-audit --no-fund --prefix "$WORK/prefix" "$WORK"/living-architecture-*.tgz
+step "pack both npm twins and install them into an isolated prefix"
+(cd "$ROOT/node" && npm ci --no-audit --no-fund && npm run build && npm pack -w trmv -w la --pack-destination "$WORK")
+npm install -g --no-audit --no-fund --prefix "$WORK/prefix" "$WORK"/type-rename-move-*.tgz \
+  "$WORK"/living-architecture-*.tgz
 for command in "${COMMANDS[@]}"; do
   [ "$(command -v "$command")" = "$WORK/prefix/bin/$command" ] || fail "$command resolves to $(command -v "$command")"
 done
@@ -53,9 +54,11 @@ git remote add origin "$WORK/origin.git"
 git push -q origin main
 git checkout -q -b accept
 
-step "la-doctor and la-config"
+step "la-doctor, trmv-doctor and their configs"
 la-doctor --require-config
+trmv-doctor --require-config
 [ "$(la-config get languages)" = '["typescript"]' ] || fail "la-config get languages: $(la-config get languages)"
+[ "$(trmv-config get languages)" = '["typescript"]' ] || fail "trmv-config get languages: $(trmv-config get languages)"
 
 step "architecture: scaffold, check, validate"
 la-arch-scaffold
@@ -63,13 +66,13 @@ la-arch-check
 npx -y likec4 validate architecture
 
 step "type check: baseline, then the gate"
-la-typecheck --write-baseline
-la-typecheck
+trmv-typecheck --write-baseline
+trmv-typecheck
 git add -A
 git commit -q -m scaffold
 
 step "compliance and mock findings"
-expect_exit 1 dr-compliance src tests > "$WORK/compliance.txt"
+expect_exit 1 trmv-compliance src tests > "$WORK/compliance.txt"
 cat "$WORK/compliance.txt"
 contains "$WORK/compliance.txt" 'tsconfig.json: tsconfig: noImplicitOverride is not enabled'
 contains "$WORK/compliance.txt" 'src/api/handler.ts:4: explicit-any'
@@ -77,13 +80,13 @@ contains "$WORK/compliance.txt" 'src/api/handler.ts:8: untyped-def: label is imp
 contains "$WORK/compliance.txt" 'tests/handler.test.ts:5: vi.mock() factory not typed'
 contains "$WORK/compliance.txt" 'tests/handler.test.ts:13: vi.fn() without a type argument'
 contains "$WORK/compliance.txt" 'tests/handler.test.ts:15: double assertion through unknown'
-expect_exit 1 dr-mock-lint tests
+expect_exit 1 trmv-mock-lint tests
 
 step "fixes"
 cp -r "$ROOT/acceptance/node-only/fixes/." .
-dr-compliance src tests
-dr-mock-lint tests
-la-typecheck
+trmv-compliance src tests
+trmv-mock-lint tests
+trmv-typecheck
 npx vitest run
 git add -A
 git commit -q -m fixes
@@ -92,9 +95,9 @@ step "refactors: dry-run writes nothing, then apply"
 refactor() {
   local before
   before=$(git diff)
-  dr-refactor "$@"
+  trmv-refactor "$@"
   [ "$(git diff)" = "$before" ] || fail "dry-run of $* changed files"
-  dr-refactor --apply "$@"
+  trmv-refactor --apply "$@"
 }
 refactor rename --file src/util/fmt.ts --symbol formatAmount --new-name formatMoney
 refactor move-symbol --file src/util/fmt.ts --symbol shout --dest src/util/text.ts
@@ -104,7 +107,7 @@ grep -qE "from ['\"]\.\./\.\./util/text['\"]" src/api/routes/handler.ts || fail 
 grep -q "src/api/routes/handler" tests/handler.test.ts || fail "move-module did not rewrite the test import"
 
 step "the gate after the refactors"
-la-typecheck
+trmv-typecheck
 npx vitest run
 la-arch-check
 git add -A

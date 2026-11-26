@@ -1,0 +1,16 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --docs, --keep, lib/commented.py:2, --keep, lib/commented.py:3]
+  typescript: [--apply, rename-map, renames.yaml, --docs, --keep, lib/commented.ts:2, --keep, lib/commented.ts:3]
+fixture: refactor-keep
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'with --docs the same comment keeps pass the checks and match: the kept lines stay, every other mention is
+  rewritten'

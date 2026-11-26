@@ -1,0 +1,24 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    gen/a.py: 'X = 1
+
+      import os
+
+      '
+    src/b.py: "\"\"\"A clean module.\"\"\"\n\nimport os\n\n\ndef f() -> str:\n    return os.sep\n"
+- commit: work
+expect:
+  exit: 0
+note: a diff-derived file under the top-level exempt is skipped; only src/b.py is checked
+golden: manual

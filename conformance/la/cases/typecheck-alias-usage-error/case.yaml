@@ -1,0 +1,12 @@
+kind: neutral
+command: la-typecheck
+args:
+- --bogus
+normalize:
+- pattern: '(?m)^usage: la-typecheck .*$'
+  replace: 'usage: la-typecheck <USAGE>'
+expect:
+  exit: 2
+  stdout: ignore
+note: the alias's usage error is trmv-typecheck's, with no deprecation line
+golden: manual

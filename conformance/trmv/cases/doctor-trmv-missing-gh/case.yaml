@@ -1,0 +1,8 @@
+kind: neutral
+command: trmv-doctor
+hide: [gh]
+normalize: [version]
+expect:
+  exit: 0
+golden: manual
+note: trmv-doctor does not require gh

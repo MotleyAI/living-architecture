@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": [
+      "es2023"
+    ],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "noEmit": true,
+    "paths": {
+      "type-rename-move": [
+        "../trmv/src"
+      ],
+      "type-rename-move/*": [
+        "../trmv/src/*/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "test"
+  ]
+}

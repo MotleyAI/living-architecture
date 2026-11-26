@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'pkg/a.py:1=1', --keep, 'pkg/a.py:1']
+  typescript: [--apply, rename-map, renames.yaml, --docs, --docs-pick, 'src/a.ts:1=1', --keep, 'src/a.ts:1']
+fixture: refactor-docs-map
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a line keep on a picked line: the line is unchanged and unlisted, the pick counts as matched'

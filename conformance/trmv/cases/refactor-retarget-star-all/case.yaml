@@ -1,0 +1,14 @@
+kind: adapter
+languages:
+- python
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-retarget
+git:
+- commit: init
+expect:
+  exit: 0
+note: importers through star imports of a module whose __all__ lists only the alias, and of one with no __all__
+golden: manual

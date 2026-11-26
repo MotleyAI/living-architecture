@@ -1,0 +1,33 @@
+kind: neutral
+twin: python
+other_twin: absent
+command: trmv-typecheck
+args:
+- --language
+- typescript
+bins:
+- dir: npm-twin
+  files:
+    trmv-doctor: |
+      #!/bin/sh
+      echo "npm-twin: trmv-doctor $*" >> <ROOT>/repo/probe.log
+      [ "$*" = "--twin" ] || { echo "fake trmv-doctor: unexpected $*" >&2; exit 99; }
+      echo "typescript <VERSION> <CONTRACT_HASH>"
+    trmv-typecheck: |
+      #!/bin/sh
+      echo "npm-twin: trmv-typecheck $*" >> <ROOT>/repo/probe.log
+      echo "npm-twin trmv-typecheck must not run" >&2
+      exit 99
+- dir: runner
+  files:
+    npx: |
+      #!/bin/sh
+      echo "runner: npx $*" >> <ROOT>/repo/probe.log
+      echo "runner npx must not run" >&2
+      exit 99
+expect:
+  exit: 2
+  files:
+  - probe.log
+golden: manual
+note: the PyPI twin refuses a TypeScript language request without starting any process

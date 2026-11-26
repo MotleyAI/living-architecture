@@ -1,2 +1,0 @@
-la-typecheck: checking python with basedpyright
-la-typecheck: python: .basedpyright/baseline.json is malformed

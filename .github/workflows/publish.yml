@@ -5,18 +5,20 @@ on:
     types: [published]
 
 jobs:
-  # Both twins publish only if every version equals the tag, both contract hashes agree and the release rule holds.
+  # Every twin publishes only if every version equals the tag, la pins trmv to its minor, each snapshot records its
+  # contract's hash and the release rule holds.
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # the release rule diffs against the previous release tag
-      - name: Check the tag, versions, contract hashes and release rule
+      - name: Check the tag, versions, pins, contract hashes and release rule
         run: scripts/release-check "${{ github.event.release.tag_name }}"
       - name: Check the vendored contract snapshots are current
         run: scripts/sync-shared --check
 
+  # type-rename-move first: living-architecture depends on it.
   pypi:
     needs: check
     runs-on: ubuntu-latest
@@ -29,11 +31,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - run: uv build
+      - run: uv build --package type-rename-move --out-dir dist/trmv
+      - run: uv build --package living-architecture --out-dir dist/la
+      # skip-existing: a rerun after a partial release publishes only what is missing.
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
-          packages-dir: python/dist/
+          packages-dir: python/dist/trmv/
+          skip-existing: true
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: python/dist/la/
+          skip-existing: true
 
+  # trmv first, as on PyPI; a package marked private, or whose version is already on npm (a rerun), is skipped.
   npm:
     needs: check
     runs-on: ubuntu-latest
@@ -49,18 +59,27 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - name: Skip while the package is private
-        id: private
+      - run: npm install -g --ignore-scripts npm@11.21.3  # trusted publishing needs npm >= 11.5
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Publish trmv, then la
         run: |
-          if [ "$(jq -r '.private // false' package.json)" = "true" ]; then
-            echo "node/package.json is private: skipping the npm publish"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.private.outputs.skip != 'true'
-        run: npm install -g npm@latest  # trusted publishing needs npm >= 11.5
-      - if: steps.private.outputs.skip != 'true'
-        run: npm ci
-      - if: steps.private.outputs.skip != 'true'
-        run: npm run build
-      - if: steps.private.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+          err=$(mktemp)
+          for package in trmv la; do
+            name=$(jq -r .name "$package/package.json")
+            version=$(jq -r .version "$package/package.json")
+            if [ "$(jq -r '.private // false' "$package/package.json")" = "true" ]; then
+              echo "node/$package/package.json is private: skipping its npm publish"
+              continue
+            fi
+            # Empty for an unpublished version; E404 for an unpublished package; any other failure stops the job.
+            if ! published=$(npm view "$name@$version" version 2>"$err"); then
+              grep -q E404 "$err" || { cat "$err" >&2; exit 1; }
+              published=""
+            fi
+            if [ "$published" = "$version" ]; then
+              echo "$name@$version is already on npm: skipping its publish"
+            else
+              npm publish -w "$package" --provenance --access public
+            fi
+          done

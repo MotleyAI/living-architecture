@@ -1,0 +1,11 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --file
+- tests/test_a.py
+expect:
+  exit: 1
+golden: manual
+note: a config without `conventions.rules` keeps every registry rule

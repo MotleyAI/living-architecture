@@ -1,0 +1,6 @@
+kind: neutral
+command: la-doctor
+expect:
+  exit: 1
+note: 'both config files: the both-files problem once, replacing the format, schema and consistency checks'
+golden: manual

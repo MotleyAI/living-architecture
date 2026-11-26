@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+- rename-map
+- renames.yaml
+fixture: refactor-progress
+git:
+- commit: init
+expect:
+  exit: 1
+golden: manual
+note: 'without --fail-fast every group is computed: three rules lines and both blind spots in the final report'

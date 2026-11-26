@@ -1,0 +1,12 @@
+kind: adapter
+languages:
+- python
+twin: typescript
+command: trmv-compliance
+args:
+- src/k.py
+fixture: compliance
+expect:
+  exit: 1
+golden: manual
+note: 'npm twin forwards trmv-compliance wholesale: output equals the PyPI twin''s own run'

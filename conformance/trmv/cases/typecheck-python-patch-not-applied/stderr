@@ -1,0 +1,2 @@
+trmv-typecheck: checking python with basedpyright
+trmv-typecheck: python: basedpyright loaded no basedpyright, so the pyright#11919 patch was not applied; run basedpyright under Node and keep NODE_OPTIONS

@@ -139,16 +139,22 @@ non-ASCII character SHALL never match, in every twin.
 - **THEN** both twins report `enforced-tags.target-mismatch` for it
 
 ### Requirement: User-facing texts come from the shared findings registry
-Every finding line, gate verdict and hint that a command prints SHALL be rendered from a template in the
-shared findings registry, identified by a stable id. A `{name}` placeholder SHALL insert the value as text.
+Every finding line, gate verdict and hint that a command prints SHALL be rendered from a template in a
+shared findings registry, identified by a stable id. Each package has its own registry in its own contract; an
+id SHALL be defined in at most one of them, and la SHALL render an id from its own registry, else from trmv's.
+A `{name}` placeholder SHALL insert the value as text.
 A `{name!r}` placeholder SHALL insert the canonical repr defined by the contract. That repr covers only
 normalized values (string, integer, float, boolean, null, list, mapping). It SHALL match Python's `repr`
 for those values, including quote selection and escapes, and it is pinned by shared test vectors. Every
-registry template SHALL be exercised by at least one conformance case.
+registry template SHALL be exercised by at least one conformance case of its package's corpus.
 
 #### Scenario: Registry coverage
 - **WHEN** the test suite runs
-- **THEN** it fails if any template id in the findings registry is not produced by at least one conformance golden
+- **THEN** it fails if any template id in either findings registry is not produced by at least one conformance golden of that package's corpus
+
+#### Scenario: Ids unique across the packages
+- **WHEN** the test suite runs and an id is defined in both the trmv and the la registry
+- **THEN** it fails naming the id
 
 #### Scenario: Repr of a string containing a quote
 - **WHEN** a `!r` placeholder receives the string `it's`
@@ -159,20 +165,27 @@ registry template SHALL be exercised by at least one conformance case.
 - **THEN** the `baseline-ratchet` finding renders the value as `[1, 2]`, byte-identical to the frozen golden
 
 ### Requirement: Command surfaces come from the shared CLI manifest
-The set of `la-*` and `dr-*` commands, and each command's subcommands, options, types, choices, repeatability,
-required options, mutually exclusive options and positionals, SHALL be defined by the shared CLI manifest. Each
-installed command SHALL build its parser from it. Parsing SHALL accept no abbreviated long options and SHALL honour
+The set of `la-*` and `trmv-*` commands, and each command's subcommands, options, types, choices, repeatability,
+required options, mutually exclusive options and positionals, SHALL be defined by the shared CLI manifests: trmv's
+manifest defines `trmv-refactor`, `trmv-compliance`, `trmv-mock-lint`, `trmv-typecheck`, `trmv-doctor` and `trmv-config`, and
+la's manifest every `la-*` command, `la-typecheck` included. Each installed command SHALL build its parser from its
+package's manifest. Parsing SHALL accept no abbreviated long options and SHALL honour
 `--`. A usage error SHALL exit 2; giving more than one option of an `exclusive` group is a usage error. A command
 declared `passthrough` SHALL hand its raw arguments to its handler. Options the manifest marks internal SHALL be
 accepted but omitted from help. The manifest SHALL declare, for each language-specific command, the languages whose
 twin implements it natively; a command declaring none is neutral. The manifest SHALL mark the commands exempt from
-the format check (`la-arch-migrate`, `la-doctor` and the review shims); every other command SHALL run the format
-check, and a format refusal SHALL exit 2 in every command. Each package's installed entry points SHALL be exactly
-the manifest's command set, and every command a skill references SHALL be in the manifest.
+the format check (`la-arch-migrate`, `la-doctor`, `trmv-doctor` and the review shims); every other command SHALL run
+the format check, and a format refusal SHALL exit 2 in every command. Each package's installed entry points SHALL be
+exactly its manifest's command set, and every command a skill references SHALL be in a manifest: a trmv skill only in
+trmv's.
 
 #### Scenario: Entry points match the manifest
-- **WHEN** either twin's test suite runs
-- **THEN** it fails if that package's installed commands (console scripts or `bin` entries) differ from the manifest's commands in either direction
+- **WHEN** either twin's test suite runs for either package
+- **THEN** it fails if that package's installed commands (console scripts or `bin` entries) differ from its manifest's commands in either direction
+
+#### Scenario: trmv skill names an la command
+- **WHEN** a SKILL.md of the trmv plugin mentions an `la-*` command
+- **THEN** the skills test fails naming the skill and the command
 
 #### Scenario: Abbreviated option rejected
 - **WHEN** `la-check-conventions --bas main` runs through either twin
@@ -183,7 +196,7 @@ the manifest's command set, and every command a skill references SHALL be in the
 - **THEN** both files are checked, `gen/*` is exempt, and the exit code and stdout equal the golden
 
 #### Scenario: Exclusive options rejected together
-- **WHEN** `dr-refactor rename --file a.py --line 1 --symbol foo --new-name bar` runs through either twin
+- **WHEN** `trmv-refactor rename --file a.py --line 1 --symbol foo --new-name bar` runs through either twin
 - **THEN** it exits 2 as a usage error
 
 #### Scenario: Internal option hidden
@@ -191,7 +204,7 @@ the manifest's command set, and every command a skill references SHALL be in the
 - **THEN** the help text does not mention `--twin`, and `la-doctor --twin` is still accepted
 
 #### Scenario: Skill references only real commands
-- **WHEN** a SKILL.md mentions an `la-*` or `dr-*` command absent from the manifest
+- **WHEN** a SKILL.md mentions an `la-*` or `trmv-*` command absent from the manifest
 - **THEN** the skills test fails naming the command
 
 #### Scenario: Every non-exempt command runs the format check
@@ -220,27 +233,33 @@ be `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**/*`, `**/__mocks__/**/*`, `**/t
 - **THEN** each result equals the vector's expected classification
 
 ### Requirement: Vendored contract snapshots match the shared source
-Each twin SHALL load its contract only from its own vendored snapshot of `shared/`. Each snapshot SHALL be
-byte-identical to `shared/`, with file modes preserved, and SHALL carry a contract hash. `la-doctor` SHALL
-report that hash, and both twins' hashes SHALL be equal.
+The shared contract SHALL be split per package: `shared/trmv/` and `shared/la/`. Each twin of each package SHALL
+load its own contract only from its own vendored snapshot of its package's directory, and la SHALL load trmv's
+contract only through the trmv library it runs with. Each snapshot SHALL be byte-identical to its source directory,
+with file modes preserved, and SHALL carry that directory's contract hash. `trmv-doctor --contract-hash` SHALL print
+trmv's hash and `la-doctor --contract-hash` la's. Both twins of a package SHALL carry equal hashes; the trmv and la
+hashes are independent.
 
 #### Scenario: Stale snapshot detected
-- **WHEN** a file under `shared/` changes and a twin's snapshot is not re-synced
+- **WHEN** a file under `shared/trmv/` or `shared/la/` changes and a twin's snapshot of that directory is not re-synced
 - **THEN** that twin's test suite fails and names the sync command
 
 #### Scenario: Built artifact carries the contract
-- **WHEN** the wheel is built and installed into a clean environment outside the checkout
-- **THEN** every command loads its contract, a review shim runs its bundled script, and `la-doctor` reports the same contract hash as the source tree
+- **WHEN** a package's wheel is built and installed into a clean environment outside the checkout (la's with trmv's)
+- **THEN** every command loads its contract, a review shim runs its bundled script, and the package's doctor reports the same contract hash as the source tree
 
 #### Scenario: Packed npm package carries the contract
-- **WHEN** `npm pack` output is installed into a clean prefix outside the checkout
-- **THEN** every command loads its contract, a review shim runs its bundled script, and `la-doctor --contract-hash` prints the same hash as the PyPI twin
+- **WHEN** a package's `npm pack` output is installed into a clean prefix outside the checkout (la's with trmv's)
+- **THEN** every command loads its contract, a review shim runs its bundled script, and the package's doctor `--contract-hash` prints the same hash as its PyPI twin
 
 ### Requirement: Configuration parameters are defined only by the shared schemas
-Every key, type, constraint and default of `living-architecture.yaml` SHALL be defined only by the shared
-JSON Schema for that file, the keys `living-architecture.local.yaml` may set SHALL be defined only by the
-shared local schema (which references the main schema's definitions of those keys), and both file names
-SHALL come only from the shared contract. Every key and type of `architecture/index.yaml` SHALL be defined
+Every key, type, constraint and default of `trmv.yaml` SHALL be defined only by trmv's shared JSON
+Schema, and of `living-architecture.yaml` only by la's, which SHALL take each trmv key (`format`, `exempt`,
+`commands.test`, `commands.typecheck`, `refactor`) by a reference to trmv's definition and stay closed to unknown
+keys. The keys `living-architecture.local.yaml` may set SHALL be defined only by the shared local schema (which
+references the main schema's definitions of those keys), and every config file name SHALL come only from the shared
+contracts.
+Filling defaults SHALL follow such references exactly as inline definitions. Every key and type of `architecture/index.yaml` SHALL be defined
 only by the shared index schema, and every key and type of a node's model metadata SHALL be defined only by
 the shared node schema. A resolved configuration SHALL equal the input with schema defaults filled in
 recursively. Filling SHALL also fill absent parent objects, and SHALL keep explicit `false`, `0`, empty
@@ -257,8 +276,16 @@ SHALL NOT constrain the values whose problems the arch-check reports as findings
 - **THEN** every other key, including `reviewers.codex` and `tracker`, carries its schema default
 
 #### Scenario: Explicit falsy values are kept
-- **WHEN** the config sets `conventions: {exempt: [], rules: []}` and `reviewers: {codex: false}`
+- **WHEN** the config sets `exempt: []`, `conventions: {rules: []}` and `reviewers: {codex: false}`
 - **THEN** the resolved configuration keeps the empty lists and `false` rather than substituting defaults
+
+#### Scenario: Referenced trmv keys are filled
+- **WHEN** `living-architecture.yaml` sets only `commands: {test: pytest}` and `la-config show` runs
+- **THEN** `exempt` is `[]`, `commands.lint` is null and `commands.typecheck` carries both language defaults, byte-identical in both twins
+
+#### Scenario: Explicit null kept through a reference
+- **WHEN** the config sets `commands: {typecheck: {python: null}}`
+- **THEN** the resolved `commands.typecheck.python` is null and `commands.typecheck.typescript` carries its default
 
 #### Scenario: Unknown key is rejected
 - **WHEN** the config contains a key the schema does not define and `la-config show` runs
@@ -283,7 +310,7 @@ SHALL NOT constrain the values whose problems the arch-check reports as findings
 ### Requirement: Repo languages
 A registered language SHALL be a repo language when its `commands.typecheck` entry is set explicitly to a
 command, or when the repo has one of the language's marker files at the root and at least one file of that
-language (tracked, or untracked and not ignored, minus `conventions.exempt`). Every command that depends on the
+language (tracked, or untracked and not ignored, minus the top-level `exempt`). Every command that depends on the
 repo's languages SHALL use this one definition.
 
 #### Scenario: Stray script is not a language
@@ -316,9 +343,9 @@ language or key SHALL exit 2 with the unknown-key message. `la-config show` SHAL
 - **THEN** it exits 2 with the unknown-key message
 
 ### Requirement: Doctor checks each repo language's executables
-`la-doctor` SHALL report a missing executable for `node` and for `npx` when TypeScript is a repo language.
-Outside a git repository it SHALL skip the language-dependent checks. A repo without TypeScript SHALL get
-today's output.
+`trmv-doctor` and `la-doctor` SHALL each report a missing executable for `node` and for `npx` when TypeScript is a
+repo language. Outside a git repository they SHALL skip the language-dependent checks. A repo without TypeScript
+SHALL get today's output.
 
 #### Scenario: TypeScript repo without node
 - **WHEN** `la-doctor` runs in a TypeScript repo with no `node` on PATH
@@ -329,9 +356,10 @@ today's output.
 - **THEN** its output equals today's golden
 
 ### Requirement: Skills are language-neutral
-A SKILL.md SHALL contain no language-only token from the shared skill-leak list; language idioms SHALL live
-only in `plugin/languages/<language>.md`. Every `la-config get <key>` a SKILL.md names SHALL be a valid key
-(with `<language>` standing for any registered language). Both twins' suites SHALL enforce these rules.
+A SKILL.md of either plugin SHALL contain no language-only token from the shared skill-leak list; language idioms
+SHALL live only in `plugin/trmv/languages/<language>.md`. Every `la-config get <key>` or `trmv-config get <key>` a
+SKILL.md names SHALL be a valid key of that command (with `<language>` standing for any registered language), and a
+trmv skill SHALL name only `trmv-config`. Both twins' suites SHALL enforce these rules.
 
 #### Scenario: Leaked token
 - **WHEN** a SKILL.md mentions `basedpyright`
@@ -342,7 +370,7 @@ only in `plugin/languages/<language>.md`. Every `la-config get <key>` a SKILL.md
 - **THEN** the skills test fails naming the key
 
 ### Requirement: la-doctor checks the tools' minor series against the calling plugin
-`la-doctor --plugin DIR` SHALL resolve DIR against the working directory and read the nearest
+`la-doctor --plugin DIR` and `trmv-doctor --plugin DIR` SHALL each resolve DIR against the working directory and read the nearest
 `.claude-plugin/plugin.json` file at or above it, skipping a missing entry or one that is not a regular file. When
 none exists it SHALL report `doctor.plugin-not-found`; when an entry on the way cannot be inspected (any other
 stat or read error) it SHALL report `doctor.plugin-unreadable`. When the file is not valid UTF-8 JSON (no BOM, no
@@ -351,12 +379,14 @@ of ASCII digits, a dot, ASCII digits, a dot and at least one more character, it 
 `doctor.plugin-invalid`.
 
 Otherwise it SHALL compare the plugin version's major and minor with the installed tools' as integers (leading
-zeros insignificant, any number of digits), ignoring whatever follows. Equal SHALL be healthy. Different SHALL
-report `doctor.version-mismatch`, naming the installed version, the plugin's version, the plugin's
-`<major>.<minor>` as written, and the invoking twin's own install command (its language's `install` template at
-the plugin's version), so its cases are pinned to the invoking twin. `la-doctor` SHALL NOT accept `--expect`.
-Every skill that uses an `la-*` or `dr-*` command SHALL run `la-doctor --plugin <this skill's base directory>` as
-its preflight.
+zeros insignificant, any number of digits), ignoring whatever follows. Equal SHALL be healthy. A plugin series
+below the tools' SHALL report `doctor.plugin-behind`, naming the doctor's package, the installed version and the
+plugin's version; a plugin series above them SHALL report `doctor.version-mismatch`, naming the doctor's package (`la` or `trmv`), the installed version, the plugin's
+version, the plugin's `<major>.<minor>` as written, and the invoking twin's own install command for that package
+(its language's `install` template at the plugin's version), so its cases are pinned to the invoking twin. Neither
+doctor SHALL accept `--expect`. Every skill of the la plugin that uses an `la-*` or `trmv-*` command SHALL run
+`la-doctor --plugin <this skill's base directory>` as its preflight, and every skill of the trmv plugin that uses a
+`trmv-*` command SHALL run `trmv-doctor --plugin <this skill's base directory>`.
 
 #### Scenario: Version read from the enclosing plugin
 - **WHEN** `la-doctor --plugin <plugin>/skills/pr` runs and `<plugin>/.claude-plugin/plugin.json` declares the installed version
@@ -366,9 +396,17 @@ its preflight.
 - **WHEN** the plugin version has the installed major and minor and a different rest (`.999`, `.0-rc1`, or the same numbers with leading zeros)
 - **THEN** it reports healthy and exits 0
 
+#### Scenario: Plugin older than the tools
+- **WHEN** the plugin version is `0.0.0`
+- **THEN** `la-doctor` prints `installed la tools are <installed>, but plugin 0.0.0 is older; update the plugin: claude plugin marketplace update living-architecture && claude plugin update la@living-architecture` and exits 1
+
 #### Scenario: Different series
-- **WHEN** the plugin version's major or minor differs from the installed tools', e.g. `0.0.0`
-- **THEN** it prints `installed la tools are <installed>, but plugin 0.0.0 needs 0.0.x; reinstall them with: <install>` with `<install>` the invoking twin's install command at `0.0.0`, and exits 1
+- **WHEN** the plugin version's major or minor differs from the installed tools', e.g. `999.0.0`
+- **THEN** it prints `installed la tools are <installed>, but plugin 999.0.0 needs 999.0.x; reinstall them with: <install>` with `<install>` the invoking twin's install command at `999.0.0`, and exits 1
+
+#### Scenario: Different series under trmv-doctor
+- **WHEN** `trmv-doctor --plugin DIR` runs and the trmv plugin's version is `999.0.0`
+- **THEN** it prints `installed trmv tools are <installed>, but plugin 999.0.0 needs 999.0.x; reinstall them with: <install>` with `<install>` the trmv install command at `999.0.0`, and exits 1
 
 #### Scenario: Series compared beyond machine integers
 - **WHEN** a component of the plugin version has more digits than a 64-bit float represents exactly
@@ -387,9 +425,11 @@ its preflight.
 - **THEN** it exits 2 as a usage error
 
 ### Requirement: A release that changes the tools raises the minor version
-The tool inputs SHALL be every file under `shared/`, `conformance/`, `python/src/`, `node/src/` and
-`node/scripts/`, `node/tsconfig*.json`, and `python/pyproject.toml`, `python/uv.lock`, `node/package.json` and
-`node/package-lock.json` compared with the package's own version substituted. For a version V, the previous
+The tool inputs SHALL be every file under `shared/`, `conformance/`, each package's `src/` under `python/` and
+`node/`, `node/scripts/` and each npm package's `scripts/`, every `tsconfig*.json` under `node/`, and every
+`pyproject.toml`, `package.json` and lockfile under `python/` and `node/`, compared with the packages' own version,
+la's pin on trmv and la's plugin dependency on trmv substituted. Both packages and both plugins SHALL share one version,
+so the rule applies to it once. For a version V, the previous
 release SHALL be the highest `vX.Y.Z` tag reachable from HEAD whose version is below V; tags of any other form
 SHALL be ignored. When the tool inputs differ between the previous release and HEAD, V's major or minor SHALL be
 greater than the previous release's.
@@ -401,11 +441,11 @@ version whenever no tag for that version exists, skipping without reachable rele
 where it SHALL fail instead.
 
 #### Scenario: Tool change released as a minor
-- **WHEN** a file under `python/src/` changed since `v0.4.1` and `scripts/release-check v0.5.0` runs on the tagged commit
+- **WHEN** a file under `python/trmv/src/` changed since `v0.4.1` and `scripts/release-check v0.5.0` runs on the tagged commit
 - **THEN** the rule passes
 
 #### Scenario: Tool change released as a patch
-- **WHEN** a file under `node/src/` or a dependency in `node/package.json` changed since `v0.4.1` and `scripts/release-check v0.4.2` runs on the tagged commit
+- **WHEN** a file under `node/trmv/src/` or a dependency in `node/trmv/package.json` changed since `v0.4.1` and `scripts/release-check v0.4.2` runs on the tagged commit
 - **THEN** it exits 1 naming `v0.4.1` and the changed inputs
 
 #### Scenario: Unchanged tools released as a patch
@@ -423,6 +463,14 @@ where it SHALL fail instead.
 #### Scenario: Bump PR checked before tagging
 - **WHEN** the repository's version has no tag yet and the tool inputs changed since the previous release without a minor bump
 - **THEN** the Python test suite fails
+
+#### Scenario: Versions out of lockstep
+- **WHEN** the trmv and la package versions, their `plugin.json` versions, la's pin on trmv or la's plugin dependency on trmv disagree on the major and minor
+- **THEN** `scripts/release-check` and the Python test suite fail naming the disagreeing files
+
+#### Scenario: Snapshot hashes checked per package
+- **WHEN** `python/trmv`'s and `node/trmv`'s snapshot hashes equal `shared/trmv`'s and the la snapshots' equal `shared/la`'s
+- **THEN** the hash check passes although the trmv and la hashes differ, and it fails naming the snapshot when any one of the four is stale
 
 ### Requirement: A duplicate key is reported naming the file, the key and both lines
 Every command that reads `living-architecture.yaml`, `living-architecture.local.yaml` or `architecture/index.yaml`
@@ -465,12 +513,14 @@ SHALL fail on a duplicate key in it, through either twin, with a message naming 
 
 ### Requirement: A release that changes the released formats appends its own version
 For a version V with a previous release (as in "A release that changes the tools raises the minor version"), the
-previous release's formats SHALL be read from its `shared/config.yaml`: its released-formats list, else a list of its
-single `format`, else an empty list when that release has no such file. A file that exists but declares neither in
-the recognised one-line form, or a `git` failure other than the file's absence, SHALL be a problem naming the release.
-HEAD's released formats SHALL equal the previous release's, or the previous release's followed by exactly V; any
-other difference SHALL be a problem naming both lists and V. The reading of HEAD's list SHALL equal what the shared
-YAML profile reads from the same file.
+previous release's formats of each config file SHALL be read from its trmv contract's `shared/trmv/config.yaml` per-file
+series when that file exists; otherwise from its `shared/config.yaml`, whose released-formats list, else a list of
+its single `format`, else an empty list when that release has no such file, are the formats of
+`living-architecture.yaml`, and `trmv.yaml` then has an empty list. A file that exists but declares
+none of these in the recognised form, or a `git` failure other than the file's absence, SHALL be a problem naming
+the release. For each config file, HEAD's released formats SHALL equal the previous release's, or the previous
+release's followed by exactly V; any other difference SHALL be a problem naming the file, both lists and V. The
+reading of HEAD's lists SHALL equal what the shared YAML profile reads from the same file.
 
 `scripts/release-check <tag>` SHALL fail on such a problem, and the Python test suite SHALL apply the same rule
 whenever it applies the release rule to an untagged version.
@@ -506,6 +556,10 @@ whenever it applies the release rule to an untagged version.
 #### Scenario: Bump PR checks the formats before tagging
 - **WHEN** the repository's version has no tag yet and HEAD's released formats append a version other than it
 - **THEN** the Python test suite fails
+
+#### Scenario: Split release read against the single-file layout
+- **WHEN** `v0.13.0` has `shared/config.yaml` with `formats: [0.4.0]` and HEAD's `shared/trmv/config.yaml` gives `living-architecture.yaml` `[0.4.0, 0.14.0]` and `trmv.yaml` `[0.14.0]` for version `0.14.0`
+- **THEN** the formats rule passes
 
 ### Requirement: OS and YAML errors render from the shared registry
 Every OS error a command reports SHALL render, in both twins, from the `os.*` templates of the shared findings
@@ -593,12 +647,12 @@ that is not valid UTF-8, in both twins.
   `la-config show` runs
 - **THEN** it exits 1 printing exactly `la-config: living-architecture.yaml: invalid YAML` in both twins
 
-#### Scenario: dr-refactor with an unreadable config
-- **WHEN** `living-architecture.yaml` cannot be read for lack of permission and `dr-refactor` runs
+#### Scenario: trmv-refactor with an unreadable config
+- **WHEN** `living-architecture.yaml` cannot be read for lack of permission and `trmv-refactor` runs
 - **THEN** it behaves exactly as it does for a config that is not valid YAML, in both twins, and never crashes
 
 #### Scenario: TypeScript refactor with an unreadable index
-- **WHEN** `architecture/index.yaml` cannot be read for lack of permission and `dr-refactor` runs on TypeScript source
+- **WHEN** `architecture/index.yaml` cannot be read for lack of permission and `trmv-refactor` runs on TypeScript source
 - **THEN** it exits 1 printing `architecture/index.yaml: permission denied` and writes nothing, as for an index that
   is not valid YAML
 
@@ -615,6 +669,10 @@ that is not valid UTF-8, in both twins.
 - **THEN** its golden contains no `[Errno` text and no numeric error code
 
 ### Requirement: Observable outputs reproduce the conformance goldens byte for byte
+The conformance corpus SHALL be split per package, `conformance/trmv/` and `conformance/la/`, each with its own cases
+and inventory; a case's tree SHALL decide its package (its manifest, format series, version, contract hash and entry
+points), and a case SHALL invoke only its own package's commands. One runner SHALL run both trees, with the commands
+of both packages but none of the host's runners on `PATH`. Fixtures SHALL be shared by both trees.
 Every case in the conformance corpus SHALL be reproduced byte-exactly: exit code, stdout and stderr, after
 normalizing only the temporary repo root to `<ROOT>`. Cases SHALL run in a fixed environment (`LC_ALL=C`,
 `TZ=UTC`, a fixed terminal width, fixed git identity and dates) with no network access. A case's `languages`
@@ -651,6 +709,27 @@ cross-twin run SHALL run every case through each twin's entry points.
 - **WHEN** a case lists `languages: [python, typescript]` with kind `neutral`
 - **THEN** both the `python/` and `node/` overlays are applied to one repo before the command runs
 
+#### Scenario: Case invoking another package's command
+- **WHEN** a case under `conformance/trmv/` invokes an `la-*` command, or a case under `conformance/la/` a `trmv-*` command
+- **THEN** the corpus self-test fails naming the case
+
 #### Scenario: OS error text is the same in both twins
 - **WHEN** `la-arch-check` cannot read `architecture/index.yaml`, or `la-arch-diagrams` cannot read a mapped arc42 doc, through either twin
 - **THEN** both twins print byte-identical stderr and exit with the same code
+
+### Requirement: release-check verifies the trmv plugin tag
+la's plugin dependency on trmv resolves against the plugin tag `trmv--v<version>`. `scripts/release-check <tag>`
+SHALL fail, naming the plugin tag, unless that tag exists for the tag's version and points at the same commit as
+`<tag>`.
+
+#### Scenario: Plugin tag at the release commit
+- **WHEN** `trmv--v0.14.0` and `v0.14.0` point at the same commit and `scripts/release-check v0.14.0` runs on it
+- **THEN** the plugin tag check passes
+
+#### Scenario: Plugin tag missing
+- **WHEN** no `trmv--v0.14.0` tag exists and `scripts/release-check v0.14.0` runs on the tagged commit
+- **THEN** it exits 1 naming `trmv--v0.14.0`
+
+#### Scenario: Plugin tag at another commit
+- **WHEN** `trmv--v0.14.0` points at a commit other than `v0.14.0`'s and `scripts/release-check v0.14.0` runs on the tagged commit
+- **THEN** it exits 1 naming `trmv--v0.14.0` and both commits

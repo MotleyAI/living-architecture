@@ -1,0 +1,23 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- retarget
+- --file
+- src/c.ts
+- --symbol
+- C.old
+- --target
+- C.value
+fixture: refactor-ts
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - src/c.ts
+  - src/use.ts
+golden: manual
+note: 'a deprecated TypeScript getter: every c.old read becomes c.value, the accessor unchanged'

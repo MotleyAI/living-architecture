@@ -1,0 +1,15 @@
+kind: paired
+languages:
+- python
+- typescript
+command: trmv-refactor
+args:
+  python: [rename-map, renames.yaml, --docs, --docs-pick, 'pkg/m.py:9', --docs-pick, 'pkg/m.py:10=1']
+  typescript: [rename-map, renames.yaml, --docs, --docs-pick, 'src/m.ts:9', --docs-pick, 'src/m.ts:10=1']
+git:
+- commit: init
+expect:
+  exit: 0
+golden: manual
+note: 'a line mentioning two entries'' old names: a pick without ENTRY rewrites each to its own entry''s new name,
+  every mention on the line; a pick with ENTRY rewrites that entry''s only, the other stays listed'

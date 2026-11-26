@@ -7,26 +7,34 @@ and contract, transparently to the caller, and fails with a clear hint when the 
 ## Requirements
 
 ### Requirement: A twin reports its identity
-Every twin's `la-doctor` SHALL accept the internal option `--twin` and print exactly one line
-`<language> <version> <contract-hash>`, where `<language>` is the language it implements natively (`python` for
-the PyPI twin, `typescript` for the npm twin), and exit 0.
+Every twin of each package SHALL accept the internal option `--twin` on its doctor and print exactly one line,
+then exit 0. `trmv-doctor --twin` SHALL print `<language> <version> <trmv-hash>`; `la-doctor --twin` SHALL print
+`<language> <version> <la-hash> <trmv-hash>`, where `<language>` is the language the twin implements natively
+(`python` for the PyPI twin, `typescript` for the npm twin), `<version>` the package version, and each hash the
+contract hash of that package's snapshot (for la, the trmv hash of the trmv library it runs with).
 
 #### Scenario: Identity line
-- **WHEN** `la-doctor --twin` runs through the PyPI twin at version 0.2.1
-- **THEN** it prints `python 0.2.1 <contract hash>` and exits 0
+- **WHEN** `trmv-doctor --twin` runs through the PyPI twin at version 0.13.0
+- **THEN** it prints `python 0.13.0 <trmv hash>` and exits 0
+
+#### Scenario: la identity line
+- **WHEN** `la-doctor --twin` runs through the npm twin at version 0.13.0
+- **THEN** it prints `typescript 0.13.0 <la hash> <trmv hash>` and exits 0
 
 ### Requirement: The other twin is found by identity
-To reach the twin for language L, a twin SHALL probe, in order, the `la-doctor` executable of each directory on
-`PATH` and then of `<repo>/node_modules/.bin`, skipping directories whose real path was already probed, the
-directory whose `la-doctor` has the same real path as the invoking twin's own `la-doctor`, and entries that are
-missing or not executable, and SHALL select the first whose `--twin` line reports L, its own version and its own
-contract hash. It SHALL run the requested command by the absolute path of that directory's executable, with the
-caller's working directory and environment. If no directory qualifies it SHALL probe the runner for L declared in
-the shared languages registry (`npx -y -p living-architecture@<version>` for TypeScript,
-`uvx --from living-architecture==<version>` for Python) with `la-doctor --twin` and, if the line qualifies, run
-the command through the same runner. When the runner is not on `PATH`, or its probe fails or reports a different
-identity, the command SHALL exit 2 printing the shared hint that names the missing twin, its version and its
-install command.
+Each package SHALL reach its own other twin: a `trmv-*` command the trmv twin of language L, an `la-*` command the la
+twin of language L. To reach it, a twin SHALL probe, in order, its package's doctor executable (`trmv-doctor` or
+`la-doctor`) in each directory on `PATH` and then in `<repo>/node_modules/.bin`, skipping directories whose real
+path was already probed, the directory whose doctor has the same real path as the invoking twin's own doctor, and
+entries that are missing or not executable, and SHALL select the first whose `--twin` line equals the line the
+invoking twin expects for L: L, its own version and its own hashes. It SHALL run the requested command by the
+absolute path of that directory's executable, with the caller's working directory and environment. If no directory
+qualifies it SHALL probe the runner for L declared in the shared languages registry for that package
+(`npx -y -p <package>@<version>` for TypeScript, `uvx --from <package>==<version>` for Python, where `<package>` is
+`type-rename-move` or `living-architecture`) with the doctor's `--twin` and, if the line qualifies, run the
+command through the same runner. When the runner is not on `PATH`, or its probe fails or reports a different
+identity, the command SHALL exit 2 printing the shared hint that names the missing twin, its package, its version
+and its install command.
 
 #### Scenario: Shadowed twin found
 - **WHEN** both twins are installed, the npm twin's directory comes first on `PATH`, and a Python-only command runs
@@ -36,39 +44,48 @@ install command.
 - **WHEN** the only other twin on `PATH` reports a different version or contract hash
 - **THEN** it is not used, and the runner is probed instead
 
+#### Scenario: la twin with a different trmv skipped
+- **WHEN** the only other la twin on `PATH` reports the same version and la hash but a different trmv hash
+- **THEN** it is not used, and the runner is probed instead
+
 #### Scenario: Twin unavailable
 - **WHEN** no qualifying twin is on `PATH` and the runner is absent or its probe fails
-- **THEN** the command exits 2 and stderr names the missing twin, its version and its install command
+- **THEN** the command exits 2 and stderr names the missing twin, its package, its version and its install command
+
+#### Scenario: trmv runner names the trmv package
+- **WHEN** `trmv-refactor` on a TypeScript file runs through the PyPI twin with no npm twin on `PATH`
+- **THEN** the probed runner is `npx -y -p type-rename-move@<version> trmv-doctor --twin`
 
 #### Scenario: Own install not probed
 - **WHEN** a twin forwards a command and its own bin directory is on `PATH`
-- **THEN** its own `la-doctor` is not run
+- **THEN** its own doctor is not run
 
 ### Requirement: Language-specific commands forward to the native twin
 A twin SHALL run a language-specific command natively when the manifest lists its own language for that
 command, and otherwise SHALL forward the raw arguments to the twin of the first listed language and exit with
 that process's exit code, passing stdout and stderr through unchanged. Neutral commands SHALL never forward.
-`dr-refactor`, `dr-compliance` and `dr-mock-lint` are native to both Python and TypeScript; each twin runs
+`trmv-refactor`, `trmv-compliance` and `trmv-mock-lint` are native to both Python and TypeScript; each twin runs
 its own language's inputs natively and hands the other language's inputs to the other twin, with the same
 working directory, as the refactor capability's routing defines. `la-check-conventions`, `la-count-comments`,
-`la-typecheck` and `la-affected-tests` are neutral and reach the other language's adapter only through their
-facts or language requests. A forwarded process SHALL carry the environment marker `LA_FORWARDED=1`, and a twin that would
-forward while the marker is set SHALL exit 2 instead.
+`trmv-typecheck`, `la-typecheck` and `la-affected-tests` are neutral and reach the other language's adapter only
+through their facts or language requests. A command SHALL run its format check once, in the invoking twin, before
+it forwards or requests anything. A forwarded process SHALL carry the environment marker `LA_FORWARDED=1`, and a
+twin that would forward while the marker is set SHALL exit 2 instead.
 
 #### Scenario: npm twin forwards a Python-only command
-- **WHEN** `dr-mock-lint tests` runs through the npm twin in a Python repo with the PyPI twin reachable
+- **WHEN** `trmv-mock-lint tests` runs through the npm twin in a Python repo with the PyPI twin reachable
 - **THEN** the output and exit code equal the PyPI twin's own run
 
 #### Scenario: PyPI twin hands TypeScript inputs to the npm twin
-- **WHEN** `dr-refactor rename --file src/a.ts --symbol foo --new-name bar` runs through the PyPI twin with the npm twin reachable
+- **WHEN** `trmv-refactor rename --file src/a.ts --symbol foo --new-name bar` runs through the PyPI twin with the npm twin reachable
 - **THEN** the output and exit code equal the npm twin's own run
 
-#### Scenario: Other twin unreachable for a dr-* input
-- **WHEN** `dr-compliance src/a.ts` runs through the PyPI twin with no npm twin reachable
+#### Scenario: Other twin unreachable for a trmv-* input
+- **WHEN** `trmv-compliance src/a.ts` runs through the PyPI twin with no npm twin reachable
 - **THEN** it exits 2 with the install hint and prints nothing on stdout
 
 #### Scenario: Neutral command never forwards
-- **WHEN** `la-config show`, `la-doctor` or `la-arch-diagrams` runs through either twin with the other twin unreachable
+- **WHEN** `la-config show`, `trmv-config show`, `la-doctor`, `trmv-doctor` or `la-arch-diagrams` runs through either twin with the other twin unreachable
 - **THEN** it completes natively with its usual output
 
 #### Scenario: Conventions gate on own-language files needs no twin
@@ -83,6 +100,10 @@ forward while the marker is set SHALL exit 2 instead.
 - **WHEN** a twin receives a command it would forward while `LA_FORWARDED=1` is set
 - **THEN** it exits 2 without forwarding
 
+#### Scenario: Format refused before forwarding
+- **WHEN** the config declares an older format and `trmv-refactor` on a TypeScript file runs through the PyPI twin with the npm twin unreachable
+- **THEN** it exits 2 with the format refusal and no install hint
+
 #### Scenario: Affected tests of own-language changes need no twin
 - **WHEN** `la-affected-tests --base main` runs through the npm twin, only TypeScript files changed, and the PyPI twin is unreachable
 - **THEN** it completes natively with its usual output
@@ -90,12 +111,12 @@ forward while the marker is set SHALL exit 2 instead.
 ### Requirement: Architecture facts are exchanged as one schema-checked document
 `la-arch-check --language <L> --emit facts` (internal options) SHALL be served only natively: a twin asked for
 another language's facts SHALL exit 2 without forwarding. The native twin SHALL print exactly one JSON document to
-stdout, valid against the shared facts schema, with its language, version and contract hash, the existence of
+stdout, valid against the shared facts schema, with its language, version and la contract hash, the existence of
 every declared and derived unit of language L (present, missing, or ambiguous with sorted candidate paths), the
-top-level units under L's root, and the measured element-level edges with one witness each; diagnostics SHALL go
+top-level units under L's roots, and the measured element-level edges with one witness each; diagnostics SHALL go
 to stderr only. A setup error SHALL exit 2 with the usual message on stderr. The requesting twin SHALL relay a
 non-zero exit's stderr and exit 2, and SHALL treat as a protocol failure (exit 2 with the shared hint) a document
-that is missing, malformed, truncated, invalid against the schema, or whose language, version or contract hash
+that is missing, malformed, truncated, invalid against the schema, or whose language, version or la contract hash
 differs, and a process ended by a signal.
 
 #### Scenario: Facts request served natively

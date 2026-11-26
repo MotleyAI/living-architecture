@@ -1,0 +1,9 @@
+kind: paired
+languages:
+- python
+command: la-arch-check
+fixture: arch-ok
+expect:
+  exit: 2
+golden: manual
+note: 'new behaviour: a source_roots entry that is not a string is a setup error naming source_roots'

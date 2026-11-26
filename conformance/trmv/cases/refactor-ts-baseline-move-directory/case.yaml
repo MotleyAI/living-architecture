@@ -1,0 +1,21 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-refactor
+args:
+- --apply
+- move-module
+- --module
+- src/util
+- --dest
+- src/lib
+git:
+- commit: init
+expect:
+  exit: 0
+  files:
+  - .tsc-baseline.json
+  - src/lib/util/use.ts
+  - src/util/use.ts
+golden: manual
+note: 'a moved directory''s baselined TS2322 depends on a module moved with it: the key follows to the new path'

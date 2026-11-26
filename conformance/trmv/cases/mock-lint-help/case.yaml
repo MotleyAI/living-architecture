@@ -1,0 +1,12 @@
+kind: neutral
+command: trmv-mock-lint
+args:
+- --help
+expect:
+  exit: 0
+  stdout:
+    contains:
+    - trmv-mock-lint
+    - --base
+golden: manual
+note: 'trmv-mock-lint is a parsed command: --help prints its help (with --base) and exits 0, nothing on stderr'
