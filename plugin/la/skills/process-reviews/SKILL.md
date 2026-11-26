@@ -62,7 +62,7 @@ On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr
 
 It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish, and 4 at once on a merge conflict.
 
-**Merge conflict** (exit 4): stop waiting. Invoked from `la:pr-review`, fetch and merge `origin/<base>` (never rebase), re-run the local gates, push, and re-arm the watch; run standalone, put the conflict at the top of the plan instead.
+**Merge conflict** (exit 4): stop waiting. Invoked from `la:pr-review`, return the conflict with the triaged list: its push step commits the fixes, merges `origin/<base>` (never rebase) and re-runs the local gates before it pushes; run standalone, put the conflict at the top of the plan instead.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR

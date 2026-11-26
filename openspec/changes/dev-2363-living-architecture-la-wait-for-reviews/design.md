@@ -75,7 +75,8 @@ never depends on `la`) is untouched. No model or arc42 edits are needed. The spe
     code and the `shim-wait-for-reviews-skipped*` cases. (user)
 19. Local Sonar pre-check before every push, in pr-review and pr-implement, on each changed production source file;
     when the tool fails or is unavailable, it is ignored. (user)
-20. Standalone process-reviews reports a merge conflict in its plan instead of merging. (user; CodeRabbit)
+20. Standalone process-reviews reports a merge conflict in its plan instead of merging; from pr-review, the conflict
+    goes to its push step. (user; CodeRabbit)
 21. Approved reply drafts are posted at once when no push follows. (user; CodeRabbit)
 
 ## Approved wording
@@ -83,7 +84,7 @@ never depends on `la`) is untouched. No model or arc42 edits are needed. The spe
 ### Merge conflict (user, approved wording)
 - process-reviews Step 0a + 0b item list: the last bullet `- \`head-moved <old> <new>\`.` becomes
   `- \`head-moved <old> <new>\`;` followed by `- \`merge-conflict <sha>\`: the PR conflicts with its base, so CI will not run.`
-- process-reviews exit sentence ends: `…, 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish, and 4 at once on a merge conflict.`, followed by a new paragraph: `**Merge conflict** (exit 4): stop waiting. Invoked from \`la:pr-review\`, fetch and merge \`origin/<base>\` (never rebase), re-run the local gates, push, and re-arm the watch; run standalone, put the conflict at the top of the plan instead.`
+- process-reviews exit sentence ends: `…, 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish, and 4 at once on a merge conflict.`, followed by a new paragraph: `**Merge conflict** (exit 4): stop waiting. Invoked from \`la:pr-review\`, return the conflict with the triaged list: its push step commits the fixes, merges \`origin/<base>\` (never rebase) and re-runs the local gates before it pushes; run standalone, put the conflict at the top of the plan instead.`
 - pr-review Step 1 loop item 3, right after "…whole batch.": `Before every push, fetch and, when \`origin/<base>\` is not an ancestor of HEAD, merge it (never rebase) and re-run the local gates.`
 
 ### Every reviewer's comments (user, approved wording)
