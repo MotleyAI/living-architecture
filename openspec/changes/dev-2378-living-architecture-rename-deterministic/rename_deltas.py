@@ -65,6 +65,6 @@ for spec in sorted((ROOT / "openspec/specs").glob("*/spec.md")):
     out.append("## MODIFIED Requirements\n\n" + "\n".join(modified))
     target = OUT / spec.parent.name / "spec.md"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("\n".join(out))
+    target.write_text("\n".join(out))  # NOSONAR(S8707) — developer-run generator; paths are the operator's own CLI arguments
     print(f"{spec.parent.name}: {len(modified)} modified, {len(renamed)} renamed")
 print("total", total)
