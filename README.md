@@ -68,11 +68,13 @@ reinstall.
 ### Upgrading
 
 1. Update the plugin: `claude plugin marketplace update living-architecture`, then
-   `claude plugin update la@living-architecture` (third-party marketplaces don't auto-update by default).
+   `claude plugin update la@living-architecture` (third-party marketplaces don't auto-update by default), then
+   `/reload-plugins` in any open Claude Code session.
 2. Rerun the install command above at the new version.
 3. When `la-doctor` asks, run `la-arch-migrate` once per repo and commit the result.
 
-A skill's preflight catches a gap between these steps and prints the fix.
+With only trmv, update `trmv@living-architecture` in step 1 and rerun its install command in step 2. A skill's
+preflight catches a gap between these steps and prints the fix.
 
 **From 0.13:** renames and moves are now the `trmv` package and plugin: `trmv-refactor`, `trmv-compliance`,
 `trmv-mock-lint`, `trmv-typecheck` and the `trmv:` skills. `la-typecheck` stays as a deprecated alias until 0.15.0.
