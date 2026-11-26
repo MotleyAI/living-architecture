@@ -150,7 +150,7 @@ const ARGV: Record<string, string[]> = {
   'la-typecheck': [],
   'la-affected-tests': ['--base', 'main'],
   'la-leak-check': ['--base', 'main'],
-  'la-fetch-coderabbit-threads': ['--help'],
+  'la-fetch-review-comments': ['--help'],
   'la-reply-invalid-coderabbit': ['--help'],
   'la-reply-to-pr-thread': ['--help'],
   'la-fetch-failed-pr-checks': ['--help'],

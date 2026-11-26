@@ -1,1 +1,1 @@
-{"argv": ["api", "-X", "POST", "repos/o/r/pulls/5/comments/1/replies", "--input", "<ROOT>/tmp/pr-reply-payload-<X>.json"], "input": "{\n  \"body\": \"hello\\n\"\n}\n"}
+{"argv": ["api", "--hostname", "github.com", "-X", "POST", "repos/o/r/pulls/5/comments/1/replies", "--input", "<ROOT>/tmp/pr-reply-payload-<X>.json"], "input": "{\n  \"body\": \"hello\\n\"\n}\n"}

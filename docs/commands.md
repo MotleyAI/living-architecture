@@ -22,9 +22,9 @@ which depends on it.
 | `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
 | `la-leak-check --base BRANCH` / `--text -` | In [stealth mode](configuration.md#stealth-mode), print the tokens that show la or trmv was used in a branch or in stdin |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
-| `la-wait-for-reviews <PR>` | Watch CI, Sonar and, when it is on the PR, CodeRabbit until they settle, printing each new failed check, CodeRabbit comment and finished Sonar analysis once |
+| `la-wait-for-reviews <PR>` | Watch CI, Sonar and, when it is on the PR, CodeRabbit until they settle, printing each new failed check, review comment and finished Sonar analysis once |
 | `la-fetch-failed-pr-checks <PR> [--check NAME]` | Failed checks plus a log excerpt of each; `--check` keeps the one with that Details URL or name |
-| `la-fetch-coderabbit-threads <PR>` | Unresolved CodeRabbit threads, nitpicks, outside-diff comments |
+| `la-fetch-review-comments <PR>` | Unresolved threads, review bodies and conversation comments from every reviewer, each marked answered; CodeRabbit's nitpicks and outside-diff comments |
 | `la-reply-to-pr-thread`, `la-reply-invalid-coderabbit` | Reply to a review thread (body on stdin) |
 
 ## Two twins

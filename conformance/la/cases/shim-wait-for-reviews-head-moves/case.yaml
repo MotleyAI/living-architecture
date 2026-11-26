@@ -10,10 +10,11 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   responses:
   - stdout:
       headRefOid: abc
+      mergeable: MERGEABLE
       statusCheckRollup:
       - __typename: CheckRun
         name: tests
@@ -25,6 +26,7 @@ gh:
         state: SUCCESS
   - stdout:
       headRefOid: def
+      mergeable: MERGEABLE
       statusCheckRollup:
       - __typename: CheckRun
         name: tests
@@ -34,6 +36,11 @@ gh:
       - __typename: StatusContext
         context: CodeRabbit
         state: SUCCESS
+- match:
+  - api
+  - user
+  stdout:
+    login: me
 - match:
   - repos/o/r/commits/abc/check-suites
   stdout:
@@ -54,8 +61,10 @@ gh:
 - match:
   - repos/o/r/issues/7/comments
   stdout:
-  - user:
+  - id: 31
+    user:
       login: coderabbitai[bot]
+    html_url: https://github.com/o/r/pull/7#issuecomment-31
     updated_at: '2026-01-02T00:00:00Z'
     body: |-
       <!-- This is an auto-generated comment: summarize by coderabbit.ai -->
@@ -69,4 +78,5 @@ gh:
 expect:
   exit: 0
 golden: manual
-note: 'HEAD moves after its checks cleared without CodeRabbit evidence: the wait restarts and settles only on evidence for the new HEAD'
+note: 'HEAD moves after its checks cleared without CodeRabbit evidence: the wait restarts and settles only on evidence for
+  the new HEAD'

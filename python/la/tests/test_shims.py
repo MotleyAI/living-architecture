@@ -44,7 +44,7 @@ def _removed_coderabbit_key(repo: Path) -> None:
 
 # The config-free review shims, by entry-point name (resolved lazily, so one missing entry fails alone).
 CONFIG_FREE = [
-    ("la_fetch_coderabbit_threads", "fetch-coderabbit-threads.sh"),
+    ("la_fetch_review_comments", "fetch-review-comments.sh"),
     ("la_reply_invalid_coderabbit", "reply-invalid-coderabbit.sh"),
     ("la_reply_to_pr_thread", "reply-to-pr-thread.sh"),
     ("la_fetch_failed_pr_checks", "fetch-failed-pr-checks.sh"),

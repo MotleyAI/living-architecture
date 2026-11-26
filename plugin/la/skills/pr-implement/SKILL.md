@@ -90,6 +90,8 @@ The baseline is a ratchet:
 `trmv-typecheck` printing "nothing to check" means no language applies, which is
 not a failure. Re-run until green.
 
+**Sonar pre-check.** Run `mcp__sonarqube__analyze_code_snippet` on each changed production source file and fix its findings. If the tool fails or is unavailable, ignore it.
+
 ## Step 3 — Push, then ask me to open the PR
 
 Once every test in scope passes AND both local gates are green, push the branch,

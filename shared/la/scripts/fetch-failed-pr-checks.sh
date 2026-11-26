@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$PR" ]] || usage
-[[ "$PR"     =~ ^[0-9]+$ ]] || { echo "error: PR_NUMBER must be a positive integer, got: $PR" >&2; exit 2; }
+[[ "$PR"     =~ ^[1-9][0-9]*$ ]] || { echo "error: PR_NUMBER must be a positive integer, got: $PR" >&2; exit 2; }
 [[ "$MAX_LOG" =~ ^[0-9]+$ ]] || { echo "error: --max-log-lines must be a non-negative integer, got: $MAX_LOG" >&2; exit 2; }
 
 if [[ -z "$REPO" ]]; then

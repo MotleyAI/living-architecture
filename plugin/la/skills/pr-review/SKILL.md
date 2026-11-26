@@ -54,10 +54,7 @@ Split the gates into two tiers:
     type-check gate of the `la:pr-implement` skill;
   - Codex on the local diff (`mcp__codex__codex`, read-only; when
     `reviewers.codex` is on) — it analyses the working tree, so it needs no push;
-  - (Sonar on the PR) local Sonar pre-check: `mcp__sonarqube__analyze_code_snippet`
-    on each changed source file (single-file only — no cross-file, coverage, or
-    duplication analysis; a fast pre-filter, NOT a substitute for the pushed
-    Sonar gate);
+  - local Sonar pre-check, before every push: `mcp__sonarqube__analyze_code_snippet` on each changed production source file (single-file only, a pre-filter, NOT a substitute for the pushed Sonar gate); fix its findings like any gate's. If the tool fails or is unavailable, ignore it;
   - `openspec validate <CHANGE_ID> --strict` (OpenSpec repos);
   - **living-architecture repos** (`architecture: true`): the
     `la:living-architecture` skill's "Working under the architecture" rules
@@ -84,9 +81,14 @@ The loop:
    Run the local gates on these fixes as you go; the full convergence, Codex included, runs once the watch has exited.
 3. **Push once.** Only after step 2 has fully converged (Codex included),
    commit and push — this re-triggers the remote gates a single time for the
-   whole batch. Never push while a question to me is pending (or about to be
-   asked) — ask first, push after I answer, even if the batch excludes the
-   disputed change.
+   whole batch. Before every push, fetch and, when `origin/<base>` is not an
+   ancestor of HEAD, merge it (never rebase) and re-run the local gates. Reply
+   drafts `/la:process-reviews` returned go to me as one approval question
+   before that push (or before reporting green when no push follows); post the
+   approved ones with `la-reply-to-pr-thread` once the push is up, or at once
+   when no push follows. Never push
+   while a question to me is pending (or about to be asked) — ask first, push
+   after I answer, even if the batch excludes the disputed change.
 4. **Full remote sweep.** Run `/la:process-reviews` again on the new HEAD (it also re-runs Codex), fixing each valid item as it is triaged, without pushing, until its watch exits. Any new failure sends you back to step 2, then step 3. Repeat until one full push cycle returns every source green with nothing left to fix.
 
 **"Green" for CI means an actually-COMPLETE, PASSING run — every check finished

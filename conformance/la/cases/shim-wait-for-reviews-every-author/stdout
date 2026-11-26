@@ -1,0 +1,4 @@
+review-comment alice https://github.com/o/r/pull/7#discussion_r13
+review alice https://github.com/o/r/pull/7#pullrequestreview-23
+pr-comment bob https://github.com/o/r/pull/7#issuecomment-31
+pr-comment sonarqubecloud[bot] https://github.com/o/r/pull/7#issuecomment-32

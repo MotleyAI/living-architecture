@@ -1,6 +1,6 @@
 ---
 name: process-reviews
-description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when they ran on the PR). Watches the PR every minute (30 min cap) and triages each new failed CI check, CodeRabbit comment and finished Sonar analysis as it appears, while a Codex review runs concurrently against the local diff. Once everything is terminal, fetches unresolved threads from all three code-review sources plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3). Invoked from la:pr-review, it returns the triaged list instead.
+description: Use when the user asks to process / triage / address / handle PR reviews from CodeRabbit, SonarQube, Codex, and CI all together (CodeRabbit and Sonar only when they ran on the PR). Watches the PR every minute (30 min cap) and triages each new failed CI check, review comment and finished Sonar analysis as it appears, while a Codex review runs concurrently against the local diff. Once everything is terminal, fetches every review comment and unresolved thread from every reviewer, Sonar's findings plus failed CI checks, validates each against the actual code / log, handles invalid ones in place (reply on thread / NOSONAR comment), and presents a unified plan for fixing the valid ones (split into logical groups if more than 3). Invoked from la:pr-review, it returns the triaged list instead.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
@@ -58,14 +58,17 @@ Never fall back to a different review tool when Codex is on (see "Codex follows 
 Arm `la-wait-for-reviews <PR>` with the Monitor tool (`timeout_ms` at its maximum). It polls the PR every minute and prints one stdout line per new item, never the same item twice, even across runs:
 
 - `ci-failed <sha> <url> <check>`: a check on HEAD failed;
-- `coderabbit-comment <url>` / `coderabbit-review <url>`: a new CodeRabbit thread, reply, or review body;
+- `review-comment <login> <url>` / `review <login> <url>` / `pr-comment <login> <url>`: a new inline comment (thread or reply), review body, or PR conversation comment by anyone but you;
 - `sonar-done <sha> <conclusion>`: HEAD's Sonar analysis finished;
 - `coderabbit-settled <sha> <outcome>`: reviewed, carried-forward, rate-limited, paused, skipped, or cap;
-- `head-moved <old> <new>`.
+- `head-moved <old> <new>`;
+- `merge-conflict <sha>`: the PR conflicts with its base, so CI will not run.
 
-On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <url>` for a failed check (`--check <check>` when `<url>` is `-`), `la-fetch-coderabbit-threads <PR>` for a CodeRabbit item (triage only the named comment or review), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
+On each event, run Steps 1–4 for that item alone, at once: `la-fetch-failed-pr-checks <PR> --check <url>` for a failed check (`--check <check>` when `<url>` is `-`), `la-fetch-review-comments <PR>` for a comment item (triage only the named comment), the Sonar calls of Step 1 for `sonar-done`. If the Monitor expires before the command exits, re-arm the same command; it prints only what is new.
 
-It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, and 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish.
+It exits 0 when every check on HEAD is terminal and CodeRabbit has settled on HEAD (or is not on the PR, or the 10-minute settle cap after the checks finish ran out), 1 if the checks do not finish within 30 minutes, 3 when CodeRabbit was rate limited, paused or skipped its review on HEAD, once the checks finish, and 4 at once on a merge conflict.
+
+**Merge conflict** (exit 4): stop waiting. Invoked from `la:pr-review`, return the conflict with the triaged list: its push step commits the fixes, merges `origin/<base>` (never rebase) and re-runs the local gates before it pushes; run standalone, put the conflict at the top of the plan instead.
 
 A check is **non-terminal** if it's:
 - a `StatusContext` with `state` ∈ {`PENDING`, `EXPECTED`} — CodeRabbit reports this way, OR
@@ -81,7 +84,7 @@ Why Stage 0b is keyed to HEAD's SHA: CodeRabbit refreshes its summary as a place
 - **Rate limited, paused or skipped** (exit 3): HEAD's latest CodeRabbit status is `Review rate limited`, `Review paused`, or ends in `review skipped` (e.g. `Incremental review skipped`). The summary's rate-limit text is not used: it stays from an earlier HEAD until CodeRabbit reaches the new one.
 - Anything else: keep polling until the cap.
 
-Only Step 5, the fix plan, waits for the command to exit, so the plan covers every source. When it exits, run Step 1 for every source once more and triage whatever no event named: edited CodeRabbit comments, and older threads that need a reply.
+Only Step 5, the fix plan, waits for the command to exit, so the plan covers every source. When it exits, run Step 1 for every source once more and triage whatever no event named: edited comments, and older threads and comments that need a reply.
 
 **CodeRabbit did not review this HEAD (rate limited, paused or skipped, script exit 3, or
 the 10-minute settle cap).** If CodeRabbit has already posted at least one real
@@ -93,7 +96,7 @@ does it block, and then you report it.
 ### 1. Fetch all unresolved feedback (in parallel)
 
 - **Codex** — already returned from Step 0's parallel call. Parse the response into findings: one entry per flagged file:line, with severity from the model's own classification. If the response was "No findings." treat the channel as empty.
-- **CodeRabbit** (on the PR) — run `la-fetch-coderabbit-threads <PR>` (see the `la:fetch-coderabbit-threads` skill). Read the JSON file it writes (`JSON: <path>` last line of stdout) — that's the structured input for the rest of this skill. **Read the comment BODIES from the rendered Markdown the script prints to stdout** (capture full stdout, not `tail`), and use the JSON only for the structured fields you need to act (per-thread `path` / `line` / `id` / `isResolved`, and the per-comment `url` for replies). In the JSON, `threads[]` carries `{id, isResolved, isOutdated, path, line, originalLine, comments}` where **`comments` is a GraphQL connection OBJECT, not a flat list** — the bodies live at `threads[].comments.nodes[].body` (each node also has `author.login`, `url`, `createdAt`). Iterating `comments` directly walks the object's keys (`pageInfo`, `nodes`), not the comments — a common parsing mistake. The review-summary `nitpicks[]` and `outside_diff[]` arrays instead carry a pre-rendered `block` string.
+- **Review comments** — run `la-fetch-review-comments <PR>` (see the `la:fetch-review-comments` skill). Read the JSON file it writes (`JSON: <path>` last line of stdout) — that's the structured input for the rest of this skill. **Read the comment BODIES from the rendered Markdown the script prints to stdout** (capture full stdout, not `tail`), and use the JSON only for the structured fields you need to act (per-thread `path` / `line` / `id` / `isResolved`, and the per-comment `url` for replies). In the JSON, `threads[]` carries `{id, isResolved, isOutdated, path, line, originalLine, comments}` where **`comments` is a GraphQL connection OBJECT, not a flat list** — the bodies live at `threads[].comments.nodes[].body` (each node also has `author.login`, `url`, `createdAt`). Iterating `comments` directly walks the object's keys (`pageInfo`, `nodes`), not the comments — a common parsing mistake. `reviews[]` (review bodies, CodeRabbit's excluded) and `comments[]` (conversation comments) carry `{author, url, createdAt, body, answered}`; every thread also carries `answered`. The review-summary `nitpicks[]` and `outside_diff[]` arrays instead carry a pre-rendered `block` string.
 - **SonarQube (on the PR) — check EVERY gate criterion AND the new-issues count, not just the gate verdict.** The Sonar quality gate can fail on issues, duplications, coverage, security hotspots, or other metrics independently. Crucially, **the gate's `conditions` list does NOT include a "new issues count" condition by default** — a gate can return `status: OK` while still introducing OPEN issues attributed to this PR. The Sonar GitHub bot comment shows the headline `N New issues` right under "Quality Gate passed/failed"; that count is the authoritative signal for PR-attributed issues, and it must reconcile with the issue search below. Fetch all of the following so the plan is not missing the actual cause of a red gate OR a silently-introduced new issue. **Mandatory calls** (all MCP, never the CLI / `sonarqube:sonar-*` skills / `gh api`):
   - `mcp__sonarqube__get_project_quality_gate_status(projectKey=..., pullRequest="<PR>")` — the headline pass/fail and the individual gate conditions (which metric tripped, threshold vs actual). Treat any non-OK condition as something to address even if no Sonar issue is filed against it. Remember: gate `OK` does NOT mean "no new issues" — verify against the issue search.
   - `mcp__sonarqube__search_sonar_issues_in_projects(projects=["<key>"], pullRequestId="<PR>", issueStatuses=["OPEN","CONFIRMED"])` — bugs, vulnerabilities, code smells. **The API can return CLOSED/FIXED issues alongside the requested statuses** (the `issueStatuses` filter is not strictly enforced when `pullRequestId` is set — Sonar returns the historical issue set for the PR including ones already closed by prior commits or by the retarget). After fetching, **filter client-side to `status in ("OPEN", "CONFIRMED")`** before triage. The remaining count MUST match the "N New issues" headline from the bot comment — if it doesn't, re-query or investigate before declaring done. **Never dismiss an OPEN issue under `pullRequestId=...` as "pre-existing" just because it appears alongside CLOSED entries from prior commits or parent branches** — under PR scope, OPEN means the issue is attributed to this PR's current HEAD.
@@ -122,7 +125,7 @@ Files matching `exempt` are skipped. Exit 0 = clear, 1 = RED (one `file:line: [r
 
 Build a single in-memory list. Each entry:
 
-- `source`: `"coderabbit"` | `"sonar"` | `"codex"` | `"ci"` | `"conventions"`
+- `source`: `"coderabbit"` | `"review"` (a comment not from CodeRabbit) | `"sonar"` | `"codex"` | `"ci"` | `"conventions"`
 - `sonar_kind` (when `source == "sonar"`): `"issue"` | `"hotspot"` | `"duplication"` | `"coverage"` | `"gate_condition"` — distinguishes the gate-criterion subtypes since each has its own invalid-handling channel (NOSONAR only applies to issues; hotspots have a review workflow; duplications/coverage/gate-conditions need code changes or `--force-clean`-style suppressions specific to the metric).
 - `file`: path relative to repo root, or `null` for CI failures (the failure may not map to a single file) and for project-level gate conditions
 - `line`: integer or `null` (or a `[start, end]` range for duplication blocks; codex findings should carry a line range when they cite one, single line otherwise)
@@ -130,7 +133,7 @@ Build a single in-memory list. Each entry:
 - `rule`: Sonar rule key (issues / hotspots), the metric key (`new_duplicated_lines_density`, `new_coverage`, ...) for gate / duplication / coverage entries, the CodeRabbit thread/comment ID, the CI workflow/job name, or `"codex"` + a short tag for codex findings (codex doesn't issue rule keys)
 - `summary`: one-line description (for CI: `<workflow> / <job>` failed at conclusion `<X>`; for gate conditions: `<metric>: <actual> vs <threshold>`; for codex: the model's one-sentence summary line)
 - `body`: full text (CodeRabbit comment body, Sonar issue/hotspot message + rule description, duplication block range + duplicate locations, coverage's uncovered-line list, the check's log excerpt, or codex's one-paragraph rationale)
-- `ref`: thread URL (CodeRabbit), Sonar issue/hotspot key, run/job URL (CI), or `null` for codex (no remote thread to link)
+- `ref`: thread URL (CodeRabbit), comment URL (review), Sonar issue/hotspot key, run/job URL (CI), or `null` for codex (no remote thread to link)
 
 Don't dedupe across sources blindly — if multiple sources flag the same area, keep them all. They need separate invalid-handling channels. **Don't drop a failing quality-gate condition just because no individual issue is filed** — duplication and coverage conditions routinely fail the gate without producing any `search_sonar_issues_in_projects` rows.
 
@@ -141,6 +144,7 @@ Don't dedupe across sources blindly — if multiple sources flag the same area, 
 For each entry, classify as VALID or INVALID using a source-appropriate signal:
 
 - **CodeRabbit / Sonar / Codex** — READ the cited file at the cited line(s). Apply the repo's and the user's standing rules (their CLAUDE.md files: e.g. trust internal code, validate only at boundaries; imports at the top). Lean toward VALID when uncertain — false positives are easier to defend later than missed bugs now. Over-verbose comments/docstrings in the diff (design essays, ticket-ID-on-every-line, code-restating comments, name-echo docstrings) are a valid maintainability finding per the `la:concise-comments` skill — flag them even if no bot did.
+- **Review comments not from CodeRabbit** — a status update (a bot's summary, gate, coverage or deploy report) is no finding: skip it. Any other comment asking for a change is validated like a CodeRabbit comment; a question is neither valid nor invalid, it needs an answer.
 - **CI failure** — READ the log excerpt in the JSON. Classify as INVALID only when the failure is clearly unrelated to this PR's changes (network blip / runner died / well-known flaky test that the user has previously confirmed is flaky / out-of-date Action that times out before doing anything). Otherwise VALID. **A test failure that points at code this PR touched is always VALID** — don't argue your way out of it.
 - **A finding that proposes an option the plan's decisions log rejected** (when the branch has a plan): VALID only if it raises something the logged reason does not answer, and then it is a plan edit to put to me under the `/la:pr` frozen-plan rule. Otherwise INVALID, and the rationale cites the decision. The rule covers that proposal only: any other claim in the same finding is its own entry, validated on its own.
 - **Conventions** — always VALID (the check is deterministic; there is nothing to second-guess); fix per "Conventions gate" below. Severity `minor`, `rule` = the bracketed rule name, `ref` = `null`.
@@ -158,12 +162,16 @@ For each entry, write a one-line classification rationale (`why-valid` or `why-i
 
 At every sweep, list ALL CodeRabbit threads on the PR, including outdated ones and ones from reviews several commits back. Any thread CodeRabbit has still not marked resolved once CI has completed on a commit pushed AFTER the thread was opened MUST get a reply in that sweep: which later commit(s) fixed it (SHA plus a one-line how and the test that pins it), or why no fix was or will be made. Start every such reply with `@coderabbitai` so CodeRabbit re-evaluates the thread. A thread you already replied to that CodeRabbit left unresolved after a later CI run needs a new reply that answers its latest comment. Never skip a thread because it is outdated, old, or was "already addressed" in a commit message; the reply on the thread is the only record that counts, and a fixed-but-unreplied thread reads as unaddressed. Review-summary nitpicks are exempt: never reply to them.
 
+#### Review comments not from CodeRabbit
+
+Draft a reply for every comment with `answered: false` that asks for a change or asks a question, whichever channel it came on; never for a status update. A fix's reply names the commit that fixed it; an invalid request's reply says why. Never post a draft unasked: list it in the Step 5 plan (invoked from `la:pr-review`, return it with the triaged list), and post it with `la-reply-to-pr-thread <url>` only after the user's OK.
+
 #### CodeRabbit (invalid)
 
 **Never** call the resolve mutation. Post a reply on the thread tagging `@coderabbitai` with the rationale, using `la-reply-invalid-coderabbit`. It auto-prepends `@coderabbitai ` if the body doesn't already start with that mention, and delegates URL parsing + the gh call to `la-reply-to-pr-thread`:
 
 ```bash
-la-reply-invalid-coderabbit <discussion-url-from-la-fetch-coderabbit-threads-output> <<'EOF'
+la-reply-invalid-coderabbit <discussion-url-from-la-fetch-review-comments-output> <<'EOF'
 <one or two sentences explaining why this is invalid / where it was already addressed>
 EOF
 ```
@@ -242,8 +250,9 @@ Do **not** silently dismiss. Surface in the plan as an "INVALID — flake/infra"
 
 **Run standalone:** after step 4, present a written plan to the user covering ONLY the valid issues. Include:
 
-- A header line: `Triaged: <V> valid / <I> invalid (<C> CodeRabbit + <S> Sonar + <X> Codex + <CI> CI)` — show every source even when its count is 0, so the user can see which channels ran.
+- A header line: `Triaged: <V> valid / <I> invalid (<C> CodeRabbit + <R> other reviewers + <S> Sonar + <X> Codex + <CI> CI)` — show every source even when its count is 0, so the user can see which channels ran.
 - One section per valid issue (or per group if >3 — see below): file:line, source, severity, summary, the proposed fix in 1–3 lines. When two or more sources flag the same fix (e.g. Codex + CodeRabbit both raise the same correctness concern), list each row but mark them as `[merged: <other-source>]` so the user sees the corroboration; the actual code change is one edit.
+- A **Proposed replies** section: each draft from Step 4 with its comment URL, for the user to approve or edit.
 
 If there are **more than 3** valid issues, split them into 2–4 LOGICAL GROUPS. Group by what makes them coherent to fix together — usually one of:
 
@@ -275,8 +284,8 @@ answer.
 
 ## When NOT to use this skill
 
-- User asks for just CodeRabbit threads → use `la:fetch-coderabbit-threads` directly.
+- User asks for just CodeRabbit threads → use `la:fetch-review-comments` directly.
 - User asks for just Sonar issues → use `sonarqube:sonar-list-issues` directly.
 - User asks for just a Codex review of the local diff → use the `la:codex-review` skill directly.
-- User says "fix the CodeRabbit comments" without mentioning Sonar / Codex → use `la:fetch-coderabbit-threads` and skip the merge step.
+- User says "fix the CodeRabbit comments" without mentioning Sonar / Codex → use `la:fetch-review-comments` and skip the merge step.
 - User wants you to start coding immediately → this skill is triage + plan only.

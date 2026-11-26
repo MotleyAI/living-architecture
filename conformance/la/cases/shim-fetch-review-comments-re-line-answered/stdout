@@ -1,0 +1,41 @@
+# Review comments on o/r PR #7
+
+_No unresolved threads._
+
+## Review bodies
+
+### Review 1 — copilot-pull-request-reviewer[bot]  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#pullrequestreview-51>
+Answered: false
+
+> Consider X
+
+---
+
+## Conversation comments
+
+### Comment 1 — bob  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#issuecomment-41>
+Answered: true
+
+> Why this?
+
+---
+
+### Comment 2 — carol  2026-01-01T00:00:00Z
+<https://github.com/o/r/pull/7#issuecomment-42>
+Answered: false
+
+> And this?
+
+---
+
+## CodeRabbit review-summary nitpicks
+
+_No nitpicks._
+
+## CodeRabbit outside-diff-range comments
+
+_No outside-diff comments._
+
+JSON: <ROOT>/tmp/review-comments-7-<TS>.json

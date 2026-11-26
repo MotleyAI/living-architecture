@@ -1,0 +1,19 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#pullrequestreview-1
+stdin: |
+  Fixed in abc1234.
+gh:
+- match:
+  - api
+  - --hostname
+  - github.com
+  - POST
+  - repos/o/r/issues/5/comments
+  stdout:
+    html_url: https://github.com/o/r/pull/5#issuecomment-77
+expect:
+  exit: 0
+golden: manual
+note: 'an unthreaded comment gets a `Re: <url>` PR conversation comment'

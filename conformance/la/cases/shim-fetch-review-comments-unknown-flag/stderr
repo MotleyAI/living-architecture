@@ -1,0 +1,7 @@
+error: unknown flag: --bogus
+usage: la-fetch-review-comments <PR_NUMBER> [--repo OWNER/REPO]
+
+  <PR_NUMBER>           required, the PR number
+  --repo OWNER/REPO     optional, defaults to the repo of the current git directory
+
+Output: Markdown to stdout, full JSON to ${TMPDIR:-/tmp}/review-comments-<pr>-<ts>.json.

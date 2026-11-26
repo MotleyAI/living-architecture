@@ -3,12 +3,12 @@
 # name contains "sonar", or a check suite on HEAD whose app slug does (both case-insensitive). Every read keyed to
 # HEAD takes its SHA from one snapshot. Every helper fails (non-zero) when gh does or its output is malformed.
 
-# The PR's HEAD snapshot: {"headRefOid": <sha>, "statusCheckRollup": [...]}, both read in one call.
+# The PR's HEAD snapshot: {"headRefOid": <sha>, "mergeable": <state or null>, "statusCheckRollup": [...]}, one call.
 rb_snapshot() {
     local out
-    out=$(gh pr view "$1" --repo "$2" --json headRefOid,statusCheckRollup) || return 1
+    out=$(gh pr view "$1" --repo "$2" --json headRefOid,mergeable,statusCheckRollup) || return 1
     jq -ce 'select((.headRefOid | type == "string") and (.statusCheckRollup | type == "array"))
-        | {headRefOid, statusCheckRollup}' <<<"$out"
+        | {headRefOid, mergeable, statusCheckRollup}' <<<"$out"
 }
 
 # A paginated list endpoint ($1) as one JSON array of the items $2 picks from each page.
@@ -25,7 +25,8 @@ rb_sonar_suites() {
     jq -c 'map(select(.app.slug // "" | ascii_downcase | test("sonar")))' <<<"$suites"
 }
 
-# "true" when CodeRabbit is on the PR (rollup JSON in $3).
+# "true" when CodeRabbit is on the PR (rollup JSON in $3). $4, when given, is the PR's conversation comments as read
+# by the caller, empty when that read failed; else they are read here.
 rb_coderabbit() {
     local by_status comments
     by_status=$(jq -r 'any(.[]; (.context // .name // "") | ascii_downcase | test("coderabbit"))' <<<"$3") || return 1
@@ -33,7 +34,12 @@ rb_coderabbit() {
         echo true
         return
     fi
-    comments=$(rb_list "repos/$2/issues/$1/comments" '.[]') || return 1
+    if (( $# > 3 )); then
+        comments=$4
+        [[ -n "$comments" ]] || return 1
+    else
+        comments=$(rb_list "repos/$2/issues/$1/comments" '.[]') || return 1
+    fi
     jq -r 'any(.[]; .user.login // "" | test("coderabbitai"; "i"))' <<<"$comments"
 }
 

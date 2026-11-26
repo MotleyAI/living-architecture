@@ -159,11 +159,11 @@ commands:
          help: print this language's selection of the stdin JSON change list as JSON}
     require_one_of: [base, language]
 
-  la-fetch-coderabbit-threads:
-    help: Fetch unresolved CodeRabbit review threads on a PR (bundled script).
-    exit: {0: ok, 2: usage error}
+  la-fetch-review-comments:
+    help: Fetch every review comment and unresolved thread on a PR not written by you, each marked answered; CodeRabbit's review bodies only as their nitpick and outside-diff sections (bundled script).
+    exit: {0: ok, 1: a GitHub read failed, 2: usage error}
     passthrough: true
-    script: fetch-coderabbit-threads.sh
+    script: fetch-review-comments.sh
     format: exempt
 
   la-reply-invalid-coderabbit:
@@ -188,8 +188,8 @@ commands:
     format: exempt
 
   la-wait-for-reviews:
-    help: Watch a PR until CodeRabbit, Sonar and CI are terminal, printing each new failed check, CodeRabbit comment and finished Sonar analysis once (bundled script).
-    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: 'CodeRabbit rate limited, paused or skipped its review', 64: usage error}
+    help: Watch a PR until CodeRabbit, Sonar and CI are terminal, printing each new failed check, review comment and finished Sonar analysis once (bundled script).
+    exit: {0: ok, 1: gate timed out, 2: repo lookup failed, 3: 'CodeRabbit rate limited, paused or skipped its review', 4: merge conflict, 64: usage error}
     passthrough: true
     script: wait-for-reviews.sh
     format: exempt

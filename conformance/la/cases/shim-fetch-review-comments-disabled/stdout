@@ -1,0 +1,65 @@
+# Review comments on o/r PR #7
+
+## Thread 1 — src/a.py:10
+URL: https://x/src/a.py
+Resolved: false   Outdated: false   Answered: false
+
+### Comment 1 — coderabbitai  t
+<https://x/src/a.py>
+
+> Fix this
+
+---
+
+## Thread 2 — src/c.py:10
+URL: https://x/src/c.py
+Resolved: false   Outdated: false   Answered: false
+
+### Comment 1 — someone  t
+<https://x/src/c.py>
+
+> Human note
+
+---
+
+## Review bodies
+
+_No review bodies._
+
+## Conversation comments
+
+_No conversation comments._
+
+## CodeRabbit review-summary nitpicks
+
+### Nitpick 1
+Review: https://x/review/1   Submitted: t
+
+> <blockquote>
+> 
+> Nit finding text
+> 
+> </blockquote>
+
+---
+
+## CodeRabbit outside-diff-range comments
+
+### Outside-diff 1
+Review: https://x/review/1   Submitted: t
+
+> Outside finding text
+> 
+> </blockquote></details>
+> <details>
+> <summary>🧹 Nitpick comments (1)</summary><blockquote>
+> 
+> Nit finding text
+> 
+> </blockquote></details>
+> 
+> 
+
+---
+
+JSON: <ROOT>/tmp/review-comments-7-<TS>.json
