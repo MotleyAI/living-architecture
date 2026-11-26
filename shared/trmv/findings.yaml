@@ -202,6 +202,7 @@ findings:
   # ---- trmv-doctor and la-doctor
   doctor.ok: 'ok: {package} tools {version}; config from {source}'
   doctor.version-mismatch: 'installed {package} tools are {installed}, but plugin {expected} needs {series}.x; reinstall them with: {install}'
+  doctor.plugin-behind: 'installed {package} tools are {installed}, but plugin {expected} is older; update the plugin: claude plugin marketplace update living-architecture && claude plugin update {package}@living-architecture'
   doctor.no-config-file: defaults (no config file)
   doctor.fail: 'FAIL: {problem}'
   doctor.missing-executable: '`{exe}` not found on PATH'

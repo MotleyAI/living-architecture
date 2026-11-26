@@ -3,7 +3,7 @@ name: fetch-coderabbit-threads
 description: Use when the user asks to fetch / list / read / show unresolved CodeRabbit review threads on a GitHub PR. Pulls thread URL, file:line, author, and full comment body for every thread CodeRabbit opened that is not yet resolved, plus CodeRabbit's review-summary nitpicks.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Fetch unresolved CodeRabbit review threads from a PR
 

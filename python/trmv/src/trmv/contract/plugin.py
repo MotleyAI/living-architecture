@@ -22,8 +22,9 @@ def _series(version: str) -> tuple[str, str] | None:
     return (match[1], match[2]) if match else None
 
 
-def _canonical(series: tuple[str, str]) -> tuple[str, ...]:
-    return tuple(part.lstrip("0") or "0" for part in series)
+def _canonical(series: tuple[str, str]) -> tuple[tuple[int, str], ...]:
+    """Exact numeric order key: (digit count, digits) per part, leading zeros stripped."""
+    return tuple((len(digits), digits) for digits in (part.lstrip("0") or "0" for part in series))
 
 
 def _reject_constant(name: str) -> None:
@@ -50,6 +51,8 @@ class _Tools:
         installed = _series(self.version)
         if installed is not None and _canonical(installed) == _canonical(series):
             return None
+        if installed is not None and _canonical(series) < _canonical(installed):
+            return message("doctor.plugin-behind", package=self.name, installed=self.version, expected=expected)
         return message(
             "doctor.version-mismatch",
             package=self.name,

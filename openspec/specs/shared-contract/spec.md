@@ -379,8 +379,9 @@ of ASCII digits, a dot, ASCII digits, a dot and at least one more character, it 
 `doctor.plugin-invalid`.
 
 Otherwise it SHALL compare the plugin version's major and minor with the installed tools' as integers (leading
-zeros insignificant, any number of digits), ignoring whatever follows. Equal SHALL be healthy. Different SHALL
-report `doctor.version-mismatch`, naming the doctor's package (`la` or `trmv`), the installed version, the plugin's
+zeros insignificant, any number of digits), ignoring whatever follows. Equal SHALL be healthy. A plugin series
+below the tools' SHALL report `doctor.plugin-behind`, naming the doctor's package, the installed version and the
+plugin's version; a plugin series above them SHALL report `doctor.version-mismatch`, naming the doctor's package (`la` or `trmv`), the installed version, the plugin's
 version, the plugin's `<major>.<minor>` as written, and the invoking twin's own install command for that package
 (its language's `install` template at the plugin's version), so its cases are pinned to the invoking twin. Neither
 doctor SHALL accept `--expect`. Every skill of the la plugin that uses an `la-*` or `trmv-*` command SHALL run
@@ -395,13 +396,17 @@ doctor SHALL accept `--expect`. Every skill of the la plugin that uses an `la-*`
 - **WHEN** the plugin version has the installed major and minor and a different rest (`.999`, `.0-rc1`, or the same numbers with leading zeros)
 - **THEN** it reports healthy and exits 0
 
+#### Scenario: Plugin older than the tools
+- **WHEN** the plugin version is `0.0.0`
+- **THEN** `la-doctor` prints `installed la tools are <installed>, but plugin 0.0.0 is older; update the plugin: claude plugin marketplace update living-architecture && claude plugin update la@living-architecture` and exits 1
+
 #### Scenario: Different series
-- **WHEN** the plugin version's major or minor differs from the installed tools', e.g. `0.0.0`
-- **THEN** it prints `installed la tools are <installed>, but plugin 0.0.0 needs 0.0.x; reinstall them with: <install>` with `<install>` the invoking twin's install command at `0.0.0`, and exits 1
+- **WHEN** the plugin version's major or minor differs from the installed tools', e.g. `999.0.0`
+- **THEN** it prints `installed la tools are <installed>, but plugin 999.0.0 needs 999.0.x; reinstall them with: <install>` with `<install>` the invoking twin's install command at `999.0.0`, and exits 1
 
 #### Scenario: Different series under trmv-doctor
-- **WHEN** `trmv-doctor --plugin DIR` runs and the trmv plugin's version is `0.0.0`
-- **THEN** it prints `installed trmv tools are <installed>, but plugin 0.0.0 needs 0.0.x; reinstall them with: <install>` with `<install>` the trmv install command at `0.0.0`, and exits 1
+- **WHEN** `trmv-doctor --plugin DIR` runs and the trmv plugin's version is `999.0.0`
+- **THEN** it prints `installed trmv tools are <installed>, but plugin 999.0.0 needs 999.0.x; reinstall them with: <install>` with `<install>` the trmv install command at `999.0.0`, and exits 1
 
 #### Scenario: Series compared beyond machine integers
 - **WHEN** a component of the plugin version has more digits than a 64-bit float represents exactly

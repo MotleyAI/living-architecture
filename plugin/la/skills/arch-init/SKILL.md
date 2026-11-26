@@ -3,7 +3,7 @@ name: arch-init
 description: Build a repo's first living-architecture model — write the language sections of architecture/index.yaml, scaffold the as-is model from the measured imports (la-arch-scaffold), choose the wedge with the user, draft the principles from the repo's own instructions, map the specs, and get la-arch-check green. Syntax and maintenance are in the la:living-architecture reference.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `trmv-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `la-doctor --plugin <this skill's base directory> --require-config` once per session before using any `la-*` or `trmv-*` command. If it reports the missing-config finding (the one naming `/la:init`), run the fast path of the `la:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Build the first architecture model
 

@@ -4,10 +4,8 @@ args: [--plugin, plugin]
 git:
 - write:
     plugin/.claude-plugin/plugin.json: '{"version": "0.0.0"}'
-normalize:
-- {pattern: '(reinstall them with: ).*', replace: '\1<INSTALL>'}
-- version
+normalize: [version]
 expect:
   exit: 1
 golden: manual
-note: an older series is a mismatch naming the plugin's series
+note: a plugin series older than the tools' names the plugin update, not a reinstall

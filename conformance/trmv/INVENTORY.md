@@ -56,7 +56,8 @@ restructure; their goldens are hand-written.
 | *(new)* `--require-config` with neither config file: one finding naming `/trmv:init` | 1 | `doctor-trmv-require-config-missing` |
 | *(new)* both config files: the both-files problem alone, replacing the format and schema checks | 1 | `doctor-trmv-both-files` |
 | *(new)* `trmv.yaml` at a newer format: the problem names `trmv` to upgrade to | 1 | `doctor-trmv-format-newer` |
-| *(new)* `--plugin` series mismatch: names trmv and the invoking twin's trmv install command at the plugin's version | 1 | `doctor-trmv-plugin-mismatch-python`, `doctor-trmv-plugin-mismatch-typescript` |
+| *(new)* `--plugin` series older than the tools': names the trmv plugin update command | 1 | `doctor-trmv-plugin-behind` |
+| *(new)* `--plugin` series newer than the tools': names trmv and the invoking twin's trmv install command at the plugin's version | 1 | `doctor-trmv-plugin-mismatch-python`, `doctor-trmv-plugin-mismatch-typescript` |
 | *(new)* `--plugin` with no manifest at or above, an invalid one, or one that cannot be inspected | 1 | `doctor-trmv-plugin-not-found`, `doctor-trmv-plugin-nan`, `doctor-trmv-plugin-unreadable` |
 | *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-trmv-typescript-missing-node` |
 | *(new)* `--twin` (internal option) prints `<language> <version> <trmv-hash>`, per twin | 0 | `doctor-trmv-twin-identity-python`, `doctor-trmv-twin-identity-typescript` |

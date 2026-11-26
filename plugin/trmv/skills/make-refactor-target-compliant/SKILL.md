@@ -3,7 +3,7 @@ name: make-refactor-target-compliant
 description: Use BEFORE renaming a symbol/attribute (Python or TypeScript) to make its blast radius verifiable — type the code that might reference it (untyped params/vars that could hold the class, classes with matching attribute names, overrides not marked as such) so the post-rename type-check gate is sound.
 ---
 
-**Preflight:** run `trmv-doctor --plugin <this skill's base directory>` once per session before using any `trmv-*` command; if it fails, stop and show the user its output.
+**Preflight:** run `trmv-doctor --plugin <this skill's base directory>` once per session before using any `trmv-*` command; if it fails, stop and show the user its output. If `trmv-doctor` is not found, or reports the trmv tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): la's install command when the repo has `living-architecture.yaml`, else `uv tool install type-rename-move==<version>` in a Python repo, `npm install -g type-rename-move@<version>` in a TS/JS repo.
 
 # Make a refactor's blast radius compliant
 

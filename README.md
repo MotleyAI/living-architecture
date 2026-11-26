@@ -65,8 +65,17 @@ the other for the other language's files in a mixed repo
 that the installed commands match the plugin before they run; a plugin update within the same minor version needs no
 reinstall.
 
-`living-architecture.yaml` records the repo's format version. After an upgrade that changes the format, most
-commands refuse to run on the repo until you run `la-arch-migrate` once, and `la-doctor` says so.
+### Upgrading
+
+1. Update the plugin: `claude plugin marketplace update living-architecture`, then
+   `claude plugin update la@living-architecture` (third-party marketplaces don't auto-update by default).
+2. Rerun the install command above at the new version.
+3. When `la-doctor` asks, run `la-arch-migrate` once per repo and commit the result.
+
+A skill's preflight catches a gap between these steps and prints the fix.
+
+**From 0.13:** renames and moves are now the `trmv` package and plugin: `trmv-refactor`, `trmv-compliance`,
+`trmv-mock-lint`, `trmv-typecheck` and the `trmv:` skills. `la-typecheck` stays as a deprecated alias until 0.15.0.
 
 ### Just renames and moves
 

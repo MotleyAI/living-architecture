@@ -3,7 +3,7 @@ name: rename-move
 description: Use to rename or move a module/class/function/method/attribute (Python or TypeScript) and update all imports/references, with a deterministic check that nothing was missed. Mutator = trmv-refactor; the guarantee = trmv-typecheck + trmv-mock-lint + the test suite. Only sound on a compliant target (see docs/rename-and-move.md).
 ---
 
-**Preflight:** run `trmv-doctor --plugin <this skill's base directory> --require-config` once per session before using any `trmv-*` command. If it reports the missing-config finding (the one naming `/trmv:init`), run the fast path of the `trmv:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure.
+**Preflight:** run `trmv-doctor --plugin <this skill's base directory> --require-config` once per session before using any `trmv-*` command. If it reports the missing-config finding (the one naming `/trmv:init`), run the fast path of the `trmv:init` skill, then re-run this preflight; stop and show the user its output on anything it still reports, or on any other failure. If `trmv-doctor` is not found, or reports the trmv tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): la's install command when the repo has `living-architecture.yaml`, else `uv tool install type-rename-move==<version>` in a Python repo, `npm install -g type-rename-move@<version>` in a TS/JS repo.
 
 # Rename and move
 

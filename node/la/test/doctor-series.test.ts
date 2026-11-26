@@ -46,4 +46,19 @@ describe('la-doctor series with a prerelease-style installed version', () => {
       'installed la tools are 1.2.3-rc.1, but plugin 1.3.0 needs 1.3.x; reinstall them with: npm install -g living-architecture@1.3.0 type-rename-move@1.3.0',
     ]);
   });
+
+  it.each(['1.1.9', '0.99.0', '01.0001.0'])('plugin %s is older than the tools', (version) => {
+    const [root, plugin] = pluginAt(version);
+    expect(runChecks(root, plugin)).toEqual([
+      `installed la tools are 1.2.3-rc.1, but plugin ${version} is older; update the plugin: claude plugin marketplace update living-architecture && claude plugin update la@living-architecture`,
+    ]);
+  });
+
+  it.each(['1.10.0', '2.0.0', '1.100000000000000000000001.0'])('plugin %s is newer than the tools', (version) => {
+    const [root, plugin] = pluginAt(version);
+    const series = version.split('.').slice(0, 2).join('.');
+    expect(runChecks(root, plugin)).toEqual([
+      `installed la tools are 1.2.3-rc.1, but plugin ${version} needs ${series}.x; reinstall them with: npm install -g living-architecture@${version} type-rename-move@${version}`,
+    ]);
+  });
 });

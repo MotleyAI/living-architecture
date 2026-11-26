@@ -3,7 +3,7 @@ name: init
 description: Onboard a repo to the trmv plugin — detect its test and type-check commands and the paths that are not its own source, propose trmv's config with a source for every key, write it, then offer the type-check baseline. Also the fast path other trmv skills run when a repo has no config, and the steps another plugin's onboarding uses for trmv's keys.
 ---
 
-**Preflight:** run `trmv-doctor --plugin <this skill's base directory>` once per session before using any `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the config this skill writes being missing or invalid.
+**Preflight:** run `trmv-doctor --plugin <this skill's base directory>` once per session before using any `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the config this skill writes being missing or invalid. If `trmv-doctor` is not found, or reports the trmv tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): la's install command when the repo has `living-architecture.yaml`, else `uv tool install type-rename-move==<version>` in a Python repo, `npm install -g type-rename-move@<version>` in a TS/JS repo.
 
 # Onboard a repo to trmv
 

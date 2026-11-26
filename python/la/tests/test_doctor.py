@@ -61,6 +61,33 @@ def test_prerelease_installed_version_reports_another_series(tmp_path: Path, mon
 
 
 @pytest.mark.usefixtures("all_tools")
+@pytest.mark.parametrize("plugin_version", ["1.1.9", "0.99.0", "01.0009.0"])
+def test_older_plugin_series_reports_the_plugin_update(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, plugin_version: str
+) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.10.0")
+    behind = (
+        f"installed la tools are 1.10.0, but plugin {plugin_version} is older; update the plugin:"
+        " claude plugin marketplace update living-architecture && claude plugin update la@living-architecture"
+    )
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, plugin_version)) == [behind]
+
+
+@pytest.mark.usefixtures("all_tools")
+@pytest.mark.parametrize("plugin_version", ["1.11.0", "2.0.0", "1.100000000000000000000001.0"])
+def test_newer_plugin_series_reports_the_reinstall(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, plugin_version: str
+) -> None:
+    monkeypatch.setattr(doctor, "__version__", "1.10.0")
+    series = ".".join(plugin_version.split(".")[:2])
+    mismatch = (
+        f"installed la tools are 1.10.0, but plugin {plugin_version} needs {series}.x; reinstall them with:"
+        f" uv tool install living-architecture=={plugin_version} --with-executables-from type-rename-move"
+    )
+    assert doctor.run_checks(root=tmp_path, plugin=_plugin(tmp_path, plugin_version)) == [mismatch]
+
+
+@pytest.mark.usefixtures("all_tools")
 def test_invalid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / config_file()).write_text(_declared("tracker: jira\n"), encoding="utf-8")
     assert la_doctor(["--root", str(tmp_path)]) == 1

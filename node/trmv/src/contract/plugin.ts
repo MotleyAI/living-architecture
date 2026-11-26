@@ -24,7 +24,18 @@ function series(version: string): [string, string] | null {
   return match === null ? null : [match[1] ?? '', match[2] ?? ''];
 }
 
-const canonical = (parts: [string, string]): string => parts.map((part) => part.replace(/^0+/, '') || '0').join('.');
+const stripped = (parts: [string, string]): string[] => parts.map((part) => part.replace(/^0+/, '') || '0');
+
+/** Exact numeric order of two series: negative, zero or positive. */
+function compareSeries(a: [string, string], b: [string, string]): number {
+  const [x, y] = [stripped(a), stripped(b)];
+  for (let i = 0; i < x.length; i++) {
+    const [p, q] = [x[i] ?? '', y[i] ?? ''];
+    if (p.length !== q.length) return p.length - q.length;
+    if (p !== q) return p < q ? -1 : 1;
+  }
+  return 0;
+}
 
 /** The installed tools a doctor checks: their package's short name, version and install command at a version. */
 interface Tools {
@@ -35,7 +46,11 @@ interface Tools {
 
 function versionProblem(tools: Tools, expected: string, plugin: [string, string]): string | null {
   const installed = series(tools.version);
-  if (installed !== null && canonical(installed) === canonical(plugin)) return null;
+  const order = installed === null ? null : compareSeries(plugin, installed);
+  if (order === 0) return null;
+  if (order !== null && order < 0) {
+    return message('doctor.plugin-behind', { package: tools.name, installed: tools.version, expected });
+  }
   return message('doctor.version-mismatch', {
     package: tools.name,
     installed: tools.version,

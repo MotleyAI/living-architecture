@@ -3,7 +3,7 @@ name: init
 description: Onboard a repo to the la plugin — detect its tracker, test/lint/type-check commands, Codex, Sonar and any existing OpenSpec or architecture setup, propose a complete living-architecture.yaml with a source for every key, ask only what cannot be detected, write the file, then offer the type-check baseline and la:arch-init. Also the fast path other skills run when a repo has no config, and the way to edit or convert an existing config.
 ---
 
-**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid or declaring an older format, which this skill converts (steps 1 and 5).
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the existing `living-architecture.yaml` being invalid or declaring an older format, which this skill converts (steps 1 and 5). If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
 
 # Onboard a repo
 
