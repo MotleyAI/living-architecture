@@ -50,10 +50,7 @@ Split the gates into two tiers:
     type-check gate of the `la:pr-implement` skill;
   - Codex on the local diff (`mcp__codex__codex`, read-only; when
     `reviewers.codex` is on) — it analyses the working tree, so it needs no push;
-  - (Sonar on the PR) local Sonar pre-check: `mcp__sonarqube__analyze_code_snippet`
-    on each changed source file (single-file only — no cross-file, coverage, or
-    duplication analysis; a fast pre-filter, NOT a substitute for the pushed
-    Sonar gate);
+  - local Sonar pre-check, before every push: `mcp__sonarqube__analyze_code_snippet` on each changed production source file (single-file only, a pre-filter, NOT a substitute for the pushed Sonar gate); fix its findings like any gate's. If the tool fails or is unavailable, ignore it;
   - `openspec validate <CHANGE_ID> --strict` (OpenSpec repos);
   - **living-architecture repos** (`architecture: true`): the
     `la:living-architecture` skill's "Working under the architecture" rules

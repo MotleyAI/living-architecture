@@ -39,4 +39,4 @@
 
 ## 8. Sonar pre-check (skills)
 
-- [ ] 8.1 pr-review and pr-implement: the Sonar pre-check wording (design.md), verbatim; verify `test_skills.py` and `plugin validate plugin/la` pass
+- [x] 8.1 pr-review and pr-implement: the Sonar pre-check wording (design.md), verbatim; verify `test_skills.py` and `plugin validate plugin/la` pass
