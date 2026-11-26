@@ -1,0 +1,14 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- --comment-id
+- '9'
+- --pr
+- '0'
+- --repo
+- o/r
+stdin: x
+expect:
+  exit: 2
+golden: manual
+note: PR numbers start at 1

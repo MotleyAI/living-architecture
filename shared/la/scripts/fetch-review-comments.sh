@@ -22,10 +22,10 @@ EOF
 PR=""
 REPO=""
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
     case "$1" in
         --repo)
-            [ $# -ge 2 ] || usage
+            [[ $# -ge 2 ]] || usage
             REPO="$2"; shift 2 ;;
         --repo=*)
             REPO="${1#--repo=}"; shift ;;
@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
             echo "error: unknown flag: $1" >&2
             usage ;;
         *)
-            if [ -z "$PR" ]; then
+            if [[ -z "$PR" ]]; then
                 PR="$1"; shift
             else
                 echo "error: unexpected positional arg: $1" >&2
@@ -47,22 +47,22 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$PR" ] || usage
-[[ "$PR" =~ ^[0-9]+$ ]] || { echo "error: PR_NUMBER must be a positive integer, got: $PR" >&2; exit 2; }
+[[ -n "$PR" ]] || usage
+[[ "$PR" =~ ^[1-9][0-9]*$ ]] || { echo "error: PR_NUMBER must be a positive integer, got: $PR" >&2; exit 2; }
 
-if [ -z "$REPO" ]; then
+if [[ -z "$REPO" ]]; then
     REPO="$(gh repo view --json owner,name -q '.owner.login + "/" + .name' 2>/dev/null || true)"
-    if [ -z "$REPO" ]; then
+    if [[ -z "$REPO" ]]; then
         echo "error: --repo not given and could not auto-detect (cwd is not a gh-recognised repo)" >&2
         exit 2
     fi
 fi
-OWNER="${REPO%%/*}"
-NAME="${REPO##*/}"
-if [ -z "$OWNER" ] || [ -z "$NAME" ] || [ "$OWNER" = "$REPO" ]; then
+if [[ ! "$REPO" =~ ^[^/]+/[^/]+$ ]]; then
     echo "error: --repo must be OWNER/REPO, got: $REPO" >&2
     exit 2
 fi
+OWNER="${REPO%%/*}"
+NAME="${REPO##*/}"
 
 command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 127; }
 command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 127; }
@@ -71,6 +71,7 @@ command -v gh >/dev/null 2>&1 || { echo "error: gh is required" >&2; exit 127; }
 # are character-class metacharacters in regex; using `[[]bot[]]` avoids needing
 # a backslash escape, which jq's JSON-string parser would reject as `\[`.
 CODERABBIT_LOGIN_RE='^coderabbitai([[]bot[]])?$'
+LENGTH='length'
 
 # The logged-in user, whose comments are our own replies.
 SELF="$(gh api user --jq '.login')"
@@ -86,7 +87,7 @@ echo '[]' > "$threads_all_json"
 
 cursor=""
 while :; do
-    if [ -z "$cursor" ]; then
+    if [[ -z "$cursor" ]]; then
         cursor_arg='null'
     else
         cursor_arg="\"$cursor\""
@@ -130,7 +131,7 @@ while :; do
     rm -f "$nodes_tmp"
 
     has_next="$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')"
-    if [ "$has_next" = "true" ]; then
+    if [[ "$has_next" = "true" ]]; then
         cursor="$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')"
     else
         break
@@ -144,13 +145,13 @@ done
 threads_paginated="$(mktemp)"
 trap 'rm -f "$threads_all_json" "$threads_paginated"' EXIT
 echo '[]' > "$threads_paginated"
-n_threads=$(jq 'length' "$threads_all_json")
+n_threads=$(jq "$LENGTH" "$threads_all_json")
 i=0
-while [ "$i" -lt "$n_threads" ]; do
+while [[ "$i" -lt "$n_threads" ]]; do
     thread="$(jq -c ".[$i]" "$threads_all_json")"
     has_more="$(echo "$thread" | jq -r '.comments.pageInfo.hasNextPage // false')"
     cursor="$(echo "$thread" | jq -r '.comments.pageInfo.endCursor // ""')"
-    while [ "$has_more" = "true" ]; do
+    while [[ "$has_more" = "true" ]]; do
         thread_id="$(echo "$thread" | jq -r '.id')"
         cpage="$(gh api graphql \
             -F threadId="$thread_id" \
@@ -203,7 +204,7 @@ replies="$(echo "$comments_json" | jq --arg me "$SELF" '[.[] | select(.user.logi
     | {at: .created_at, first: ((.body // "") | split("\n")[0] | rtrimstr("\r"))}]')"
 entries='{author: (.user.login // "ghost"), url: .html_url, createdAt: $at, body: (.body // "")}
     | select(.author != $me)
-    | . as $e | .answered = any($replies[0][]; .first == "Re: \($e.url)" and .at > $e.createdAt)'
+    | . as $e | .answered = any($replies[0][]; .first == "Re: \($e.url)" and .at >= $e.createdAt)'
 reviews_out="$(echo "$reviews_json" | jq --arg me "$SELF" --arg re "$CODERABBIT_LOGIN_RE" \
     --slurpfile replies <(echo "$replies") \
     '[.[] | select((.body // "" | test("\\S")) and (.user.login // "" | test($re) | not))
@@ -311,8 +312,8 @@ jq -n \
 echo "# Review comments on $REPO PR #$PR"
 echo
 
-thread_count="$(echo "$threads_filtered" | jq 'length')"
-if [ "$thread_count" = "0" ]; then
+thread_count="$(echo "$threads_filtered" | jq "$LENGTH")"
+if [[ "$thread_count" = "0" ]]; then
     echo "_No unresolved threads._"
     echo
 else
@@ -341,14 +342,15 @@ fi
 
 # Renders the entries JSON $1 under heading $2, each titled $3, or the line $4 when there are none.
 render_entries() {
-    echo "## $2"
+    local entries=$1 heading=$2 title=$3 none=$4
+    echo "## $heading"
     echo
-    if [ "$(echo "$1" | jq 'length')" = "0" ]; then
-        echo "$4"
+    if [[ "$(echo "$entries" | jq "$LENGTH")" = "0" ]]; then
+        echo "$none"
         echo
         return
     fi
-    echo "$1" | jq -r --arg title "$3" '
+    echo "$entries" | jq -r --arg title "$title" '
         to_entries[]
         | "### \($title) \(.key + 1) — \(.value.author)  \(.value.createdAt // "")",
           "<\(.value.url)>",
@@ -366,8 +368,8 @@ render_entries "$comments_out" "Conversation comments" "Comment" "_No conversati
 
 echo "## CodeRabbit review-summary nitpicks"
 echo
-nitpick_count="$(echo "$nitpicks" | jq 'length')"
-if [ "$nitpick_count" = "0" ]; then
+nitpick_count="$(echo "$nitpicks" | jq "$LENGTH")"
+if [[ "$nitpick_count" = "0" ]]; then
     echo "_No nitpicks._"
     echo
 else
@@ -389,8 +391,8 @@ fi
 
 echo "## CodeRabbit outside-diff-range comments"
 echo
-outside_count="$(echo "$outside_diff" | jq 'length')"
-if [ "$outside_count" = "0" ]; then
+outside_count="$(echo "$outside_diff" | jq "$LENGTH")"
+if [[ "$outside_count" = "0" ]]; then
     echo "_No outside-diff comments._"
     echo
 else

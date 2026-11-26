@@ -1,0 +1,10 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '0'
+- --repo
+- o/r
+expect:
+  exit: 64
+golden: manual
+note: PR numbers start at 1

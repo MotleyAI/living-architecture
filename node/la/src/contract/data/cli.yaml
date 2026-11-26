@@ -146,8 +146,8 @@ commands:
     require_one_of: [base, language]
 
   la-fetch-review-comments:
-    help: Fetch every review comment and unresolved thread on a PR not written by you, each marked answered (bundled script).
-    exit: {0: ok, 2: usage error}
+    help: Fetch every review comment and unresolved thread on a PR not written by you, each marked answered; CodeRabbit's review bodies only as their nitpick and outside-diff sections (bundled script).
+    exit: {0: ok, 1: a GitHub read failed, 2: usage error}
     passthrough: true
     script: fetch-review-comments.sh
     format: exempt

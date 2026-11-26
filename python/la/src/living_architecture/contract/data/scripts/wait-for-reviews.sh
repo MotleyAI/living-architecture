@@ -77,7 +77,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -z "$PR" ]]; then
+if [[ ! "$PR" =~ ^[1-9][0-9]*$ ]]; then
     usage
 fi
 

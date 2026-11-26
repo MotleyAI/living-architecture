@@ -7,6 +7,8 @@ stdin: |
 gh:
 - match:
   - api
+  - --hostname
+  - github.com
   - POST
   - repos/o/r/issues/5/comments
   stdout:

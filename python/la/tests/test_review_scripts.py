@@ -1258,8 +1258,15 @@ def test_wait_reads_each_comment_list_once_per_poll(fake_gh, run_script, monkeyp
     r = _wait(fake_gh, run_script, _polls(_routes(rollup=[RUNNING], comments=comments), _snapshot(rollup=[RUNNING]),
                                           _snapshot(rollup=[TESTS_RUN])))
     assert r.returncode == 0, r.stderr
-    assert _snapshot_calls(fake_gh) == 2
-    assert {e: sum(e in c["argv"] for c in fake_gh.calls()) for e in COMMENT_LISTS} == dict.fromkeys(COMMENT_LISTS, 2)
+    polls: list[list[list[str]]] = []
+    for call in fake_gh.calls():
+        if all(t in call["argv"] for t in SNAPSHOT):
+            polls.append([])
+        elif polls:
+            polls[-1].append(call["argv"])
+    assert len(polls) == 2
+    reads = [{e: sum(e in argv for argv in poll) for e in COMMENT_LISTS} for poll in polls]
+    assert reads == [dict.fromkeys(COMMENT_LISTS, 1)] * 2
 
 
 @pytest.mark.usefixtures("fast_wait")

@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ ! "$PR" =~ ^[0-9]+$ ]]; then
+if [[ ! "$PR" =~ ^[1-9][0-9]*$ ]]; then
     usage
 fi
 

@@ -100,9 +100,13 @@ def test_installed_artifact_runs_every_command(kind, artifacts, tmp_path, fake_g
     (work / "a.py").write_text(CLEAN, encoding="utf-8")
     env = {**fake_gh.env(), "PATH": os.pathsep.join([str(fake_gh.bin), str(bin_dir), os.environ["PATH"]])}
     fake_gh.route((["repos/o/r/pulls/3/comments/9/replies"], {"html_url": "u"}),
-                  (["pr", "view", "headRefOid,statusCheckRollup"], {"headRefOid": "abc", "statusCheckRollup": []}),
+                  (["pr", "view", "headRefOid,mergeable,statusCheckRollup"],
+                   {"headRefOid": "abc", "mergeable": "MERGEABLE", "statusCheckRollup": []}),
+                  (["api", "user"], {"login": "me"}),
                   (["repos/o/r/commits/abc/check-suites"], {"check_suites": []}),
-                  (["repos/o/r/issues/7/comments"], []))
+                  (["repos/o/r/issues/7/comments"], []),
+                  (["repos/o/r/pulls/7/reviews"], []),
+                  (["repos/o/r/pulls/7/comments"], []))
     scaffold = tmp_path / "scaffold"
     (scaffold / "architecture").mkdir(parents=True)
     (scaffold / "architecture" / "index.yaml").write_text("python:\n  root_package: pkg\n", encoding="utf-8")

@@ -1,0 +1,10 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '0'
+- --repo
+- o/r
+expect:
+  exit: 2
+golden: manual
+note: PR numbers start at 1

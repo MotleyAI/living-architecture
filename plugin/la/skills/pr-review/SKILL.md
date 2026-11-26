@@ -81,7 +81,8 @@ The loop:
    ancestor of HEAD, merge it (never rebase) and re-run the local gates. Reply
    drafts `/la:process-reviews` returned go to me as one approval question
    before that push (or before reporting green when no push follows); post the
-   approved ones with `la-reply-to-pr-thread` once the push is up. Never push
+   approved ones with `la-reply-to-pr-thread` once the push is up, or at once
+   when no push follows. Never push
    while a question to me is pending (or about to be asked) — ask first, push
    after I answer, even if the batch excludes the disputed change.
 4. **Full remote sweep.** Run `/la:process-reviews` again on the new HEAD (it also re-runs Codex), fixing each valid item as it is triaged, without pushing, until its watch exits. Any new failure sends you back to step 2, then step 3. Repeat until one full push cycle returns every source green with nothing left to fix.
