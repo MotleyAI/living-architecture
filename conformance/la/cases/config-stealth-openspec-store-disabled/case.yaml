@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- get
+- openspec_store
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: false
+expect:
+  exit: 0
+note: 'openspec: false: no private store, an empty line'
+golden: manual

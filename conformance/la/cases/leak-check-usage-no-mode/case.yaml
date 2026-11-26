@@ -1,0 +1,14 @@
+kind: neutral
+command: la-leak-check
+args: []
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 2
+  stderr: ignore
+note: neither --base nor --text is a usage error
+golden: manual

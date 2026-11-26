@@ -1,0 +1,17 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      leaks: {allow: [living-architecture]}
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - '''living-architecture'''
+note: a core token cannot be allowed; the error names the token
+golden: manual

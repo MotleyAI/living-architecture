@@ -1,0 +1,33 @@
+kind: neutral
+command: la-doctor
+bins:
+- dir: fake-openspec
+  position: before
+  files:
+    openspec: |
+      #!/bin/sh
+      [ "$*" = "store list --json" ] || { echo "fake openspec: unexpected $*" >&2; exit 99; }
+      c=$(git rev-parse --path-format=absolute --git-common-dir) || exit 99
+      id=la-$(printf %s "$c/living-architecture" | sha256sum | cut -c1-12)
+      printf '{"stores": [{"id": "%s", "root": "%s"}], "status": []}\n' "$id" "$c/living-architecture/openspec"
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: true
+- common_dir:
+    living-architecture/openspec/openspec/config.yaml: |
+      schema: spec-driven
+- write:
+    openspec/changes/é x/proposal.md: |
+      # x
+normalize:
+- version
+expect:
+  exit: 1
+note: 'git paths are read NUL-delimited: a non-ASCII path with a space is named verbatim, never quoted'
+golden: manual

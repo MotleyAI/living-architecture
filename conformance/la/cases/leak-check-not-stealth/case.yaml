@@ -1,0 +1,22 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- write:
+    living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- commit: init
+- origin:
+  - main
+- branch: egor/dev-1-living-architecture-stealth
+- write:
+    src/a.py: |
+      X = 1
+- commit: Run la-doctor
+expect:
+  exit: 0
+note: outside stealth mode a note on stderr, nothing on stdout
+golden: manual

@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      architecture: true
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - architecture
+    - <ROOT>/repo/.git/living-architecture/living-architecture.yaml
+note: 'a stealth config refuses architecture: true, naming the key and the file'
+golden: manual

@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- get
+- leaks.allow
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      leaks: {allow: [arc42]}
+expect:
+  exit: 0
+note: the la stealth config accepts waivable leak tokens
+golden: manual

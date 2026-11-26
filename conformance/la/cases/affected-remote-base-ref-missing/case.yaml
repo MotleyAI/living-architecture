@@ -1,0 +1,30 @@
+kind: neutral
+command: la-affected-tests
+args:
+- --base
+- upstream/nope
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_b.py: |
+      import os
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- remote:
+    upstream:
+    - main
+- branch: feat
+expect:
+  exit: 2
+golden: manual
+note: 'upstream is a remote but upstream/nope does not exist: the shared git error names refs/remotes/upstream/nope, empty
+  stdout'

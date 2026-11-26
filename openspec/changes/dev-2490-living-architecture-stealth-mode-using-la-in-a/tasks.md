@@ -1,6 +1,6 @@
 ## 1. Harness and model (approval first)
 
-- [ ] 1.1 Extend the conformance harness with git steps for a linked worktree (run the command inside it), a write
+- [x] 1.1 Extend the conformance harness with git steps for a linked worktree (run the command inside it), a write
   into the git common directory (stealth files), a `.git/info/exclude` entry, a named remote and a submodule;
   document them in `conformance/README.md`; verify with a harness self-test case per step
 - [ ] 1.2 Show the user the exact `architecture/model.c4` edit (node `leaks` with `specs ['stealth-leaks']` in both
@@ -21,10 +21,10 @@
 
 ## 3. Tests (pr-tests stage)
 
-- [ ] 3.1 Conformance cases for every scenario of the delta specs (repo-config, doctor, typecheck, conventions,
+- [x] 3.1 Conformance cases for every scenario of the delta specs (repo-config, doctor, typecheck, conventions,
   affected-tests, refactor, stealth-leaks), listed in each tree's `INVENTORY.md`; every new findings template
   produced by a golden; verify they fail before implementation
-- [ ] 3.2 Twin unit tests for the resolver (common-dir resolution, subdir, linked worktree, submodule, outside git),
+- [x] 3.2 Twin unit tests for the resolver (common-dir resolution, subdir, linked worktree, submodule, outside git),
   the base resolver, the merge-base cache key and worktree cleanup, the token matcher and the ledger matcher, in
   both twins
 

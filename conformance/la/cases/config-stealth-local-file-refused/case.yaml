@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.local.yaml
+note: a repo-root local file is a config error in stealth mode
+golden: manual

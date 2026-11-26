@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+fixture: typecheck-stealth
+bins:
+- dir: probe
+  position: before
+  files:
+    basedpyright: "#!/bin/sh\nif [ -d .git ]; then echo checkout > <ROOT>/repo/probe-checkout.log; else echo merge-base >\
+      \ <ROOT>/repo/probe.log; fi\nself=$(cd \"$(dirname \"$0\")\" && pwd -P)\nIFS=:\nfor d in $PATH; do\n  [ \"$(cd \"$d\"\
+      \ 2>/dev/null && pwd -P)\" = \"$self\" ] && continue\n  [ -x \"$d/basedpyright\" ] && exec \"$d/basedpyright\" \"$@\"\
+      \ndone\necho \"probe: no basedpyright on PATH\" >&2\nexit 99\n"
+git:
+- exclude:
+  - probe*.log
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+expect:
+  exit: 2
+  files:
+  - probe.log
+  - probe-checkout.log
+note: 'stealth without --base, a tracked baseline or refs/remotes/origin/HEAD: refused naming --base, no checker run'
+golden: manual

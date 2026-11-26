@@ -1,0 +1,14 @@
+kind: neutral
+command: trmv-doctor
+args:
+- --require-config
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+normalize:
+- version
+expect:
+  exit: 0
+note: trmv-doctor --require-config accepts <C>/trmv/trmv.yaml and names it as the source
+golden: manual

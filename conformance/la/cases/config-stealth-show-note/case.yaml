@@ -1,0 +1,15 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 0
+  stdout: ignore
+note: la-config show notes the stealth file it read on stderr (the shown values are pinned elsewhere)
+golden: manual

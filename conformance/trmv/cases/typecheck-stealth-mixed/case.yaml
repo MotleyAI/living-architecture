@@ -1,0 +1,31 @@
+kind: neutral
+languages:
+- python
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    pkg/m.py: "X = 1\n\n\ndef f(a: int) -> int:\n    return a\n\n\ndef use() -> int:\n    return f(\"x\")\n"
+    src/b.ts: 'export const b: number = ''x'';
+
+      '
+- commit: work
+expect:
+  exit: 1
+note: 'a mixed stealth repo: python from its merge-base baseline, typescript through its twin with --base passed on; byte-identical
+  through either twin'
+golden: manual

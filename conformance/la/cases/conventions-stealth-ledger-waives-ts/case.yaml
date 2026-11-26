@@ -1,0 +1,31 @@
+kind: adapter
+languages:
+- typescript
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.ts: |
+      export const a = 1;
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.ts: |
+      export const a = 1;
+      import x from './x';
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: src/a.ts, rule: import-not-top, line: "import x from './x';", reason: generated}
+expect:
+  exit: 0
+golden: manual
+note: 'stealth: the ledger waives a TypeScript violation the same way'

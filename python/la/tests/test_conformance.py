@@ -21,6 +21,7 @@ from conformance_runner import (
     case_files,
     check_case,
     check_json,
+    common_dir,
     load_case,
     materialize,
     package_cases,
@@ -268,6 +269,101 @@ def test_orphan_step_leaves_head_unborn_with_the_index_kept(tmp_path: Path) -> N
     head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=repo, env=env, capture_output=True, check=False)
     staged = subprocess.run(["git", "ls-files"], cwd=repo, env=env, capture_output=True, text=True, check=True).stdout
     assert (head.returncode, staged) == (1, "a.txt\n")
+
+
+def _git_out(repo: Path, env: dict[str, str], *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, text=True, check=True).stdout
+
+
+def _materialized(tmp_path: Path, steps: list[dict]) -> tuple[Path, dict[str, str]]:
+    case_dir = tmp_path / "la" / "cases" / "steps"
+    case_dir.mkdir(parents=True)
+    return materialize(case_dir, _case(git=steps), tmp_path / "run", NEUTRAL)
+
+
+def test_worktree_step_adds_a_linked_worktree_under_the_root(tmp_path: Path) -> None:
+    steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"worktree": {"path": "wt", "branch": "feat"}}]
+    repo, env = _materialized(tmp_path, steps)
+    wt = tmp_path / "run" / "wt"
+    assert _git_out(wt, env, "rev-parse", "--abbrev-ref", "HEAD") == "feat\n"
+    assert common_dir(wt, env) == common_dir(repo, env)
+    assert (wt / ".git").is_file()
+
+
+def test_common_dir_step_writes_into_the_git_common_directory(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(conformance_runner, "current_format", lambda: "7.8.9")
+    repo, _ = _materialized(tmp_path, [{"common_dir": {"living-architecture/living-architecture.yaml": "format: <FORMAT>\n"}}])
+    assert (repo / ".git" / "living-architecture" / "living-architecture.yaml").read_text(encoding="utf-8") == "format: 7.8.9\n"
+
+
+def test_exclude_step_appends_to_info_exclude(tmp_path: Path) -> None:
+    repo, env = _materialized(tmp_path, [{"write": {"x.json": "{}\n", "y.txt": "y\n"}}, {"exclude": ["x.json"]}])
+    assert _git_out(repo, env, "status", "--porcelain") == "?? y.txt\n"
+
+
+def test_remote_step_pushes_to_a_named_bare_remote(tmp_path: Path) -> None:
+    steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"remote": {"upstream": ["main"]}}]
+    repo, env = _materialized(tmp_path, steps)
+    assert _git_out(repo, env, "remote") == "upstream\n"
+    assert _git_out(repo, env, "rev-parse", "upstream/main") == _git_out(repo, env, "rev-parse", "main")
+
+
+def test_merge_step_records_a_merge_commit(tmp_path: Path) -> None:
+    steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"branch": "side"}, {"write": {"b.txt": "b\n"}},
+             {"commit": "side"}, {"checkout": "main"}, {"merge": {"ref": "side", "message": "join"}}]
+    repo, env = _materialized(tmp_path, steps)
+    assert _git_out(repo, env, "log", "-1", "--format=%P %s").count(" ") == 2
+    assert _git_out(repo, env, "log", "-1", "--format=%s") == "join\n"
+
+
+def test_sh_step_runs_in_the_repo_with_placeholders(tmp_path: Path) -> None:
+    repo, env = _materialized(tmp_path, [{"sh": "git commit -q --allow-empty -m subject -m body\necho <ROOT> > root.txt"}])
+    assert _git_out(repo, env, "log", "-1", "--format=%b") == "body\n\n"
+    assert (repo / "root.txt").read_text(encoding="utf-8") == f"{tmp_path / 'run'}\n"
+
+
+def test_submodule_step_adds_a_submodule_with_its_own_git_dir(tmp_path: Path) -> None:
+    steps = [{"write": {"a.txt": "a\n"}}, {"commit": "init"}, {"submodule": {"path": "sub", "files": {"s.txt": "s\n"}}}]
+    repo, env = _materialized(tmp_path, steps)
+    assert (repo / "sub" / "s.txt").read_text(encoding="utf-8") == "s\n"
+    assert common_dir(repo / "sub", env) != common_dir(repo, env)
+
+
+def _config_case(tmp_path: Path, name: str, body: str) -> Path:
+    case_dir = tmp_path / "la" / "cases" / name
+    (case_dir / "repo").mkdir(parents=True)
+    (case_dir / "repo" / "living-architecture.yaml").write_text("format: <FORMAT>\ntracker: none\n", encoding="utf-8")
+    (case_dir / "case.yaml").write_text(f"kind: neutral\ncommand: la-config\nargs: [get, tracker]\n{body}", encoding="utf-8")
+    return case_dir
+
+
+def test_cwd_takes_the_root_placeholder(tmp_path: Path) -> None:
+    case_dir = _config_case(
+        tmp_path, "cwd",
+        "cwd: <ROOT>/wt\ngit: [{commit: init}, {worktree: {path: wt, branch: feat}}]\n"
+        "expect: {exit: 0, stdout: {contains: [none]}, stderr: ignore}\n",
+    )
+    assert check_case(case_dir, tmp_path / "run") == []
+
+
+def test_rerun_applies_its_steps_and_compares_the_last_run(tmp_path: Path) -> None:
+    rerun = "rerun: [{write: {living-architecture.yaml: \"format: <FORMAT>\\ntracker: github\\n\"}}]\n"
+    case_dir = _config_case(tmp_path, "rerun", rerun + "expect: {exit: 0, stdout: {contains: [github]}, stderr: ignore, rerun_same: true}\n")
+    assert check_case(case_dir, tmp_path / "run") == ["the rerun's exit code, stdout or stderr differ from the first run's"]
+    case_dir = _config_case(tmp_path, "rerun2", rerun + "expect: {exit: 0, stdout: {contains: [github]}, stderr: ignore}\n")
+    assert check_case(case_dir, tmp_path / "run2") == []
+
+
+def test_worktree_list_is_compared_with_its_golden(tmp_path: Path) -> None:
+    case_dir = tmp_path / "la" / "cases" / "wtlist"
+    case_dir.mkdir(parents=True)
+    (case_dir / "case.yaml").write_text(
+        "kind: neutral\ncommand: la-config\nargs: [get, issue_key_pattern]\n"
+        "git: [{write: {a.txt: x}}, {commit: init}]\nexpect: {exit: 0, stdout: ignore, worktrees: true}\n",
+        encoding="utf-8",
+    )
+    (case_dir / "worktrees").write_text("worktree <ROOT>/elsewhere\n", encoding="utf-8")
+    assert "+worktree <ROOT>/repo" in "\n".join(check_case(case_dir, tmp_path / "run"))
 
 
 @pytest.mark.parametrize("case_dir", CASES, ids=lambda p: p.name)

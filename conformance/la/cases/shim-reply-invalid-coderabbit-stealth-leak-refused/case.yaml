@@ -1,0 +1,30 @@
+kind: neutral
+command: la-reply-invalid-coderabbit
+args:
+- https://github.com/o/r/pull/5#discussion_r1
+stdin: |
+  LikeC4 says so
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+env:
+  FAKE_GH_LOG: <ROOT>/repo/gh.log
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/1/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r9
+expect:
+  exit: 1
+  files:
+  - gh.log
+  stderr:
+    contains:
+    - 'stdin:1: LikeC4'
+note: in stealth the CodeRabbit reply is scanned too and refused before any gh call
+golden: manual

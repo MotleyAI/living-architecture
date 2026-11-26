@@ -1,0 +1,38 @@
+kind: neutral
+command: la-affected-tests
+args:
+- --base
+- upstream/main
+git:
+- write:
+    src/pkg/__init__.py: ''
+    src/pkg/a.py: |
+      from pkg import b
+    src/pkg/b.py: |
+      X = 1
+    tests/test_a.py: |
+      import pkg.a
+    tests/test_b.py: |
+      import os
+    tests/test_c.py: |
+      import os
+- commit: init
+- origin:
+  - main
+- write:
+    tests/test_b.py: |
+      import sys
+- commit: upstream work
+- remote:
+    upstream:
+    - main
+- branch: feat
+- write:
+    tests/test_c.py: |
+      import sys
+- commit: work
+expect:
+  exit: 0
+golden: manual
+note: 'a fork: --base upstream/main compares with the merge base of upstream/main, which has the test_b change origin/main
+  lacks'

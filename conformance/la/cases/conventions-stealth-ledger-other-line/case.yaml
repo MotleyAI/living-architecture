@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: |
+      def f() -> str:
+          return 'x'
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      def f() -> str:
+          import os
+          return 'x'
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: src/a.py, rule: import-not-top, line: import sys, reason: optional dependency}
+expect:
+  exit: 1
+golden: manual
+note: 'stealth: an entry on another line text waives nothing; the RED verdict names the ledger, no inline example'

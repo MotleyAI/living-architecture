@@ -66,12 +66,15 @@ COMMAND_PREFIXES = {
 }
 
 class CaseResult:
-    def __init__(self, exit_code: int, stdout: str, stderr: str, files: dict[str, str], git_status: str | None = None) -> None:
+    def __init__(self, exit_code: int, stdout: str, stderr: str, files: dict[str, str], git_status: str | None = None,
+                 worktrees: str | None = None, *, rerun_changed: bool = False) -> None:
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
         self.files = files
         self.git_status = git_status
+        self.worktrees = worktrees
+        self.rerun_changed = rerun_changed
 
 
 class Variant:
@@ -155,12 +158,34 @@ _GIT_STEPS: dict[str, Callable[[Any], list[str]]] = {
 }
 
 
-def _push_origin(repo: Path, root: Path, env: dict[str, str], refs: list[str]) -> None:
-    origin = root / "origin.git"
-    if not origin.exists():
-        subprocess.run(["git", "init", "-q", "--bare", str(origin)], env=env, check=True, capture_output=True)
-        _git(repo, env, "remote", "add", "origin", str(origin))
-    _git(repo, env, "push", "-q", "origin", *refs)
+def _push_remote(repo: Path, root: Path, env: dict[str, str], name: str, refs: list[str]) -> None:
+    remote = root / f"{name}.git"
+    if not remote.exists():
+        subprocess.run(["git", "init", "-q", "--bare", str(remote)], env=env, check=True, capture_output=True)
+        _git(repo, env, "remote", "add", name, str(remote))
+    _git(repo, env, "push", "-q", name, *refs)
+
+
+def common_dir(repo: Path, env: dict[str, str]) -> Path:
+    """The absolute git common directory of `repo`."""
+    out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=repo, env=env,
+                         check=True, capture_output=True, text=True).stdout
+    return Path(out.strip())
+
+
+def _add_worktree(repo: Path, root: Path, env: dict[str, str], arg: dict) -> None:
+    where = ["-b", arg["branch"]] if "branch" in arg else ["--detach"]
+    _git(repo, env, "worktree", "add", "-q", *where, str(root / arg["path"]))
+
+
+def _add_submodule(repo: Path, root: Path, env: dict[str, str], arg: dict) -> None:
+    source = root / f"{arg['path']}-src"
+    source.mkdir(parents=True)
+    _git(source, env, "init", "-q", "-b", "main")
+    _write_files(source, arg.get("files", {"README": "submodule\n"}))
+    _git(source, env, "add", "-A")
+    _git(source, env, "commit", "-q", "-m", "init")
+    _git(repo, env, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(source), arg["path"])
 
 
 def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str], package: str = "la") -> None:
@@ -179,7 +204,25 @@ def _apply_step(step: dict, *, repo: Path, root: Path, env: dict[str, str], pack
         for src, dst in arg.items():
             _git(repo, env, "mv", src, dst)
     elif op == "origin":
-        _push_origin(repo, root, env, arg)
+        _push_remote(repo, root, env, "origin", arg)
+    elif op == "remote":
+        for name, refs in arg.items():
+            _push_remote(repo, root, env, name, refs)
+    elif op == "common_dir":
+        _write_files(common_dir(repo, env), {rel: with_format(substitute(text, root, package)) for rel, text in arg.items()})
+    elif op == "exclude":
+        exclude = common_dir(repo, env) / "info" / "exclude"
+        exclude.parent.mkdir(parents=True, exist_ok=True)
+        with exclude.open("a", encoding="utf-8") as handle:
+            handle.writelines(f"{pattern}\n" for pattern in arg)
+    elif op == "sh":
+        subprocess.run(["sh", "-ec", substitute(arg, root, package)], cwd=repo, env=env, check=True, capture_output=True)
+    elif op == "merge":
+        _git(repo, env, "merge", "-q", "--no-ff", "-m", arg["message"], arg["ref"])
+    elif op == "worktree":
+        _add_worktree(repo, root, env, arg)
+    elif op == "submodule":
+        _add_submodule(repo, root, env, arg)
     else:
         raise ValueError(f"unknown git step {op!r}")
 
@@ -394,32 +437,47 @@ def _normalize(text: str, root: Path, case: dict, package: str) -> str:
     return text
 
 
-def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str = TWIN) -> CaseResult:
-    case = load_case(case_dir)
-    package = package_of(case_dir)
-    if case["command"] not in MANIFESTS[package]:
-        raise ValueError(f"{case_dir.name}: {case['command']} is not a {package} command")
-    repo, env = materialize(case_dir, case, root, variant, twin)
+def _invoke(case: dict, repo: Path, root: Path, env: dict[str, str], variant: Variant, twin: str,
+            package: str) -> subprocess.CompletedProcess[bytes]:
     command = BIN_DIRS[twin] / case["command"]
     if not command.is_file():
         raise FileNotFoundError(f"command {case['command']} is not installed in {BIN_DIRS[twin]}")
-    proc = subprocess.run(
+    return subprocess.run(
         [str(command), *[substitute(a, root, package) for a in case_args(case, variant)]],
-        cwd=repo / case.get("cwd", "."),
+        cwd=repo / substitute(str(case.get("cwd", ".")), root, package),
         env=env,
         input=case.get("stdin", "").encode("utf-8"),
         capture_output=True,
         timeout=120,
         check=False,
     )
+
+
+def _git_out(repo: Path, env: dict[str, str], *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, check=True).stdout.decode("utf-8")
+
+
+def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str = TWIN) -> CaseResult:
+    case = load_case(case_dir)
+    package = package_of(case_dir)
+    if case["command"] not in MANIFESTS[package]:
+        raise ValueError(f"{case_dir.name}: {case['command']} is not a {package} command")
+    repo, env = materialize(case_dir, case, root, variant, twin)
+    proc = _invoke(case, repo, root, env, variant, twin, package)
+    first = None
+    if "rerun" in case:
+        first = (proc.returncode, proc.stdout, proc.stderr)
+        for step in case["rerun"]:
+            _apply_step(step, repo=repo, root=root, env=env, package=package)
+        proc = _invoke(case, repo, root, env, variant, twin, package)
     files = {
         rel: _normalize((repo / rel).read_bytes().decode("utf-8"), root, case, package) if (repo / rel).is_file() else "<MISSING>\n"
         for rel in case_files(case, variant)
     }
-    status = None
-    if case.get("expect", {}).get("git_status"):
-        listed = subprocess.run(["git", "status", "--porcelain"], cwd=repo, env=env, capture_output=True, check=True)
-        status = _normalize(listed.stdout.decode("utf-8"), root, case, package)
+    expect = case.get("expect", {})
+    status = _normalize(_git_out(repo, env, "status", "--porcelain"), root, case, package) if expect.get("git_status") else None
+    worktrees = (_normalize(_git_out(repo, env, "worktree", "list", "--porcelain"), root, case, package)
+                 if expect.get("worktrees") else None)
     for rel in case.get("chmod", {}):
         (repo / rel).chmod(0o755)
     return CaseResult(
@@ -428,6 +486,8 @@ def run_case(case_dir: Path, root: Path, variant: Variant = NEUTRAL, twin: str =
         stderr=_normalize(proc.stderr.decode("utf-8"), root, case, package),
         files=files,
         git_status=status,
+        worktrees=worktrees,
+        rerun_changed=first is not None and first != (proc.returncode, proc.stdout, proc.stderr),
     )
 
 
@@ -501,6 +561,10 @@ def check_case(
     )
     if result.git_status is not None:
         problems += _check_stream(case_dir, None, "git-status", result.git_status, variant.golden, update=write)
+    if result.worktrees is not None:
+        problems += _check_stream(case_dir, None, "worktrees", result.worktrees, variant.golden, update=write)
+    if expect.get("rerun_same") and result.rerun_changed:
+        problems.append("the rerun's exit code, stdout or stderr differ from the first run's")
     for rel, content in result.files.items():
         golden = case_dir / "files" / rel
         if write:

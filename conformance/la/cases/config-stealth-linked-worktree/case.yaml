@@ -1,0 +1,22 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+cwd: <ROOT>/wt
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- worktree:
+    path: wt
+    branch: feat
+expect:
+  exit: 0
+note: a linked worktree reads the stealth config of the common dir it shares
+golden: manual

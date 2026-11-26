@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/b.ts: 'export const b = 3;
+
+      '
+- commit: work
+expect:
+  exit: 2
+note: 'the checker fails at the merge base only: exit 2 naming the merge-base commit'
+golden: manual

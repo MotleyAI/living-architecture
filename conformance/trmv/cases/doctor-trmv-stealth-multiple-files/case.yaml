@@ -1,0 +1,15 @@
+kind: neutral
+command: trmv-doctor
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+normalize:
+- version
+expect:
+  exit: 1
+note: trmv-doctor reports both stealth files present as its one config finding
+golden: manual

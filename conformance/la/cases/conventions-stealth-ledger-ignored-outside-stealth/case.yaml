@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- write:
+    living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: |
+      def f() -> str:
+          return 'x'
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      def f() -> str:
+          import os  # ALLOW(import-not-top): optional dependency
+          return 'x'
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: [
+expect:
+  exit: 0
+golden: manual
+note: with a committed config the ALLOW comment waives and the ledger (here invalid YAML) is never read

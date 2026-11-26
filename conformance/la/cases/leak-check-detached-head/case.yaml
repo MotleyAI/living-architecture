@@ -1,0 +1,27 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: la-doctor-work
+- write:
+    src/a.py: |
+      X = 1
+- commit: Run trmv-refactor
+- checkout: HEAD~0
+expect:
+  exit: 1
+note: a detached HEAD has no branch name to scan
+golden: manual

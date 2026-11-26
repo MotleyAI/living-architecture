@@ -1,0 +1,30 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  living-architecture
+  type-rename-move
+  trmv
+  /la:pr
+  /trmv:init
+  ALLOW(x)
+  la-arch-check
+  .basedpyright/baseline.json
+  .tsc-baseline.json
+  trmv.yaml
+  living-architecture.local.yaml
+  architecture/index.yaml
+  trmv-mock-lint
+  la-typecheck
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 1
+note: 'every core token group: names, slash commands, ALLOW(, commands, registry paths'
+golden: manual

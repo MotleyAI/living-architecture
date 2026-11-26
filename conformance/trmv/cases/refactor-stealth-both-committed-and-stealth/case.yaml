@@ -1,0 +1,18 @@
+kind: neutral
+command: trmv-refactor
+args:
+- rename
+- --file
+- src/a.py
+- --symbol
+- f
+- --new-name
+- g
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+expect:
+  exit: 2
+note: trmv-refactor refuses a committed and a stealth config together before anything else
+golden: manual

@@ -1,0 +1,33 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: |
+      def f() -> str:
+          return 'x'
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      def f() -> str:
+          import os
+          return 'x'
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: src/a.py, rule: import-not-top, line: import os, reason: optional dependency}
+expect:
+  exit: 0
+golden: manual
+note: 'stealth: a ledger entry matching path, rule and line text waives the late import'

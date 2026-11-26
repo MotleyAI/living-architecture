@@ -1,0 +1,25 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    docs/x.md: |
+      notes
+- commit: init
+- origin:
+  - main
+- branch: feat
+- rename:
+    docs/x.md: trmv.yaml
+- commit: Move notes
+expect:
+  exit: 1
+note: a path renamed to is scanned; a path token also hits the shorter token it starts with
+golden: manual

@@ -1,0 +1,32 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: x/la-config
+- write:
+    a.md: |
+      pr-tests
+- commit: 'first: arc42'
+- write:
+    b.md: |
+      OpenSpec
+    Z.md: |
+      reset point
+- commit: 'second: LikeC4'
+expect:
+  exit: 1
+note: branch, then commits oldest first, then paths in code-point order with their added lines
+golden: manual

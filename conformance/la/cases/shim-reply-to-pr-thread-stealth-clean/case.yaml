@@ -1,0 +1,30 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#discussion_r1
+stdin: |
+  hello
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+env:
+  FAKE_GH_LOG: <ROOT>/repo/gh.log
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/1/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r9
+normalize:
+- pattern: pr-reply-payload-[A-Za-z0-9_]+[.]json
+  replace: pr-reply-payload-<X>.json
+expect:
+  exit: 0
+  files:
+  - gh.log
+note: in stealth a body without a token is posted as outside stealth
+golden: manual

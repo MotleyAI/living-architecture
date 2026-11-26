@@ -1,0 +1,22 @@
+kind: adapter
+languages:
+- python
+fixture: typecheck-python
+command: trmv-typecheck
+git:
+- exclude:
+  - .venv/
+- write:
+    .basedpyright/baseline.json: |
+      {"files": {}}
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      commands:
+        typecheck:
+          python: 'basedpyright -p app'
+expect:
+  exit: 0
+note: trmv-typecheck checks Python with the command la's stealth config sets (baseline tracked at HEAD)
+golden: manual

@@ -1,0 +1,9 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+expect:
+  exit: 0
+note: living-architecture.yaml at the repo root is not stealth for trmv
+golden: manual

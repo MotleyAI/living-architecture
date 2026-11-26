@@ -1,0 +1,16 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+expect:
+  exit: 2
+note: every config file present is named in lookup order, trmv's stealth file included
+golden: manual

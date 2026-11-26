@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - stealth
+    - living-architecture.yaml
+note: no config file can set stealth; wording is not contract, the key and the file are
+golden: manual

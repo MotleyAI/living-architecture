@@ -1,0 +1,1 @@
+FAIL: openspec is true and the repo tracks no openspec/, but the private OpenSpec store la-<ID> is not set up; run /la:openspec-init

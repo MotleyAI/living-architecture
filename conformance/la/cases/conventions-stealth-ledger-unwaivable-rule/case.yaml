@@ -1,0 +1,37 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: |
+      def f() -> str:
+          return 'x'
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      def f() -> str:
+          import os
+          return 'x'
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: src/a.py, rule: text-ratio, line: import os, reason: x}
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - <ROOT>/repo/.git/living-architecture/waivers.yaml
+golden: manual
+note: 'stealth: a ledger entry naming the unwaivable text-ratio rule is an error naming the ledger'

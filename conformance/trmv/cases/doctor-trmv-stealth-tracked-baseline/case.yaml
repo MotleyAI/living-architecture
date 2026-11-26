@@ -1,0 +1,16 @@
+kind: neutral
+command: trmv-doctor
+git:
+- write:
+    .basedpyright/baseline.json: |
+      {"files": {}}
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+normalize:
+- version
+expect:
+  exit: 0
+note: the repo's own tracked, unchanged baseline is no finding
+golden: manual

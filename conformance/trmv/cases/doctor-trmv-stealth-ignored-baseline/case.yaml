@@ -1,0 +1,21 @@
+kind: neutral
+command: trmv-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- write:
+    .basedpyright/baseline.json: |
+      {"files": {}}
+- exclude:
+  - .basedpyright/
+normalize:
+- version
+expect:
+  exit: 0
+note: a stray baseline ignored through .git/info/exclude is no finding
+golden: manual

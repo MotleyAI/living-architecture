@@ -1,0 +1,24 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: linear
+      openspec: false
+- write:
+    architecture/index.yaml: |
+      python: {root_package: pkg}
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: architecture/index.yaml is untracked and not ignored in this stealth repo; delete it or list it in .git/info/exclude'
+note: an untracked architecture/index.yaml is reported (beside the architecture-present finding)
+golden: manual

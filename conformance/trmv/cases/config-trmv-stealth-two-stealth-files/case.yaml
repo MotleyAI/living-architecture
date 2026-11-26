@@ -1,0 +1,15 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+expect:
+  exit: 2
+note: both stealth files without a root file are also refused
+golden: manual

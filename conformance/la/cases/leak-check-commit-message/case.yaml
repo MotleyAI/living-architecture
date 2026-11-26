@@ -1,0 +1,26 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      X = 1
+- commit: Implement pr-plan decision 3
+expect:
+  exit: 1
+note: a commit message since the merge base is scanned, by short sha
+golden: manual

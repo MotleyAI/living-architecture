@@ -1,0 +1,22 @@
+kind: neutral
+command: trmv-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- write:
+    trmv.yaml: |
+      format: 0.14.0
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: trmv.yaml is untracked and not ignored in this stealth repo; delete it or list it in .git/info/exclude'
+note: an untracked, unignored trmv.yaml in a stealth repo is reported (the multiple-files finding may precede it)
+golden: manual

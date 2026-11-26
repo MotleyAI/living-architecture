@@ -1,0 +1,33 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- upstream/main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- write:
+    src/b.py: |
+      Y = 1
+- commit: Add la-config
+- remote:
+    upstream:
+    - main
+- branch: feat
+- write:
+    src/a.py: |
+      X = 1
+- commit: Use pr-review notes
+expect:
+  exit: 1
+note: --base upstream/main scans from the merge base with upstream/main, so the upstream-only commit is not scanned
+golden: manual

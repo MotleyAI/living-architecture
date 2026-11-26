@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- get
+- leaks.allow
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+expect:
+  exit: 0
+note: leaks.allow defaults to an empty list in stealth mode
+golden: manual

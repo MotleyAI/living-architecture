@@ -18,7 +18,7 @@ command: la-arch-check
 args: [--root, .]                  # `<VERSION>`, `<MAJOR>`, `<MINOR>`, `<CONTRACT_HASH>`, `<TRMV_CONTRACT_HASH>`, `<ROOT>`
                                    # are substituted
                                    # paired: or {python: [...], typescript: [...]}, one list per language
-cwd: sub/dir                       # relative to the repo; default: the repo root
+cwd: sub/dir                       # relative to the repo, or `<ROOT>/wt` (a linked worktree); default: the repo root
 stdin: text
 fixture: arch-ok                   # copies fixtures/<name>/{repo,<overlays>}/ first
 remove: [path]                     # deleted after the overlays are applied
@@ -38,6 +38,10 @@ expect:
   files: [path]                    # compared with files/<path> after the run; absent reads `<MISSING>`
                                    # paired: or {python: [...], typescript: [...]}, one list per language
   git_status: true                 # `git status --porcelain` after the run, compared with the git-status golden
+  worktrees: true                  # `git worktree list --porcelain` after the run, compared with the worktrees golden
+  rerun_same: true                 # with `rerun`: both runs' exit code, stdout and stderr are equal
+rerun: [step, ...]                 # git steps applied after a first run, then the command runs again; goldens
+                                   # compare the second run
 golden: manual                     # hand-written goldens; the update mode never writes them
 note: why this case exists
 ```
@@ -55,7 +59,12 @@ root and at the `--root` the case passes, and in `write:` steps; nowhere else.
 
 Git steps, applied in order after `git init`: `write: {path: text}` (placeholders substituted), `commit: message` (stages everything),
 `branch: name`, `checkout: name`, `orphan: name` (an unborn branch, index kept), `stage: [path]`, `delete: [path]`, `git_rm: [path]`,
-`rename: {from: to}`, `origin: [branch]` (creates a local bare `origin` and pushes).
+`rename: {from: to}`, `origin: [branch]` (creates a local bare `origin` and pushes), `remote: {name: [branch]}` (the
+same for any remote name), `merge: {ref: name, message: text}` (a `--no-ff` merge commit), `sh: script` (run by `sh -e` in the repo with the
+case's environment, placeholders substituted; for what no other step expresses), `worktree: {path: wt, branch: name}` (a linked worktree at `<ROOT>/<path>` on a new branch,
+detached without `branch`), `common_dir: {path: text}` (written under the absolute git common directory, placeholders
+substituted), `exclude: [pattern]` (appended to the common directory's `info/exclude`), `submodule: {path: sub, files:
+{path: text}}` (a repo at `<ROOT>/<path>-src` holding `files`, added as a submodule and left uncommitted).
 
 Overlays are `repo/` and one directory per fixture language (`python/`, `node/` for typescript), copied from
 the fixture and then from the case, in `languages` order; a later overlay overwrites an earlier one's file. A
