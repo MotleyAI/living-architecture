@@ -23,28 +23,28 @@ function byLanguage(paths: string[]): Map<string, string[]> {
   return out;
 }
 
+/** One other language's facts, in `group`'s order, from its twin; FactsError when the twin fails. */
+function twinFacts(id: string, group: string[], cwd: string, repoRoot: string): Facts[] {
+  try {
+    const document = twin.requestDocument(id, identity(), 'la-check-conventions', ['--language', id, '--emit', 'facts'], 'conventions-facts', {
+      repoRoot,
+      cwd,
+      stdin: JSON.stringify(group),
+      accept: (doc) => doc.files.length === group.length && doc.files.every((f: { path: string }, i: number) => f.path === group[i]),
+    });
+    return document.files;
+  } catch (error) {
+    if (error instanceof twin.RelayedFailure) throw new FactsError('');
+    if (error instanceof twin.TwinError) throw new FactsError(error.message);
+    throw error;
+  }
+}
+
 /** Facts entry per path (all with a known extension, relative to `cwd`); FactsError when a twin fails. */
 export function collect(paths: string[], cwd: string, repoRoot: string): Map<string, Facts> {
   const out = new Map<string, Facts>();
   for (const [id, group] of byLanguage(paths)) {
-    let entries: Facts[];
-    if (id === twin.NATIVE_LANGUAGE) {
-      entries = conventionsFacts(cwd, group, message);
-    } else {
-      try {
-        const document = twin.requestDocument(id, identity(), 'la-check-conventions', ['--language', id, '--emit', 'facts'], 'conventions-facts', {
-          repoRoot,
-          cwd,
-          stdin: JSON.stringify(group),
-          accept: (doc) => doc.files.length === group.length && doc.files.every((f: { path: string }, i: number) => f.path === group[i]),
-        });
-        entries = document.files;
-      } catch (error) {
-        if (error instanceof twin.RelayedFailure) throw new FactsError('');
-        if (error instanceof twin.TwinError) throw new FactsError(error.message);
-        throw error;
-      }
-    }
+    const entries = id === twin.NATIVE_LANGUAGE ? conventionsFacts(cwd, group, message) : twinFacts(id, group, cwd, repoRoot);
     for (const entry of entries) out.set(entry.path, entry);
   }
   return out;
