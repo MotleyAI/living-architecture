@@ -19,7 +19,7 @@ TRMV_SCHEMA = "trmv.schema.json"
 TRMV_KEYS = {"format", "exempt", "commands", "refactor"}
 TRMV_COMMANDS = {"trmv-refactor", "trmv-compliance", "trmv-mock-lint", "trmv-typecheck", "trmv-doctor", "trmv-config"}
 REVIEW_SHIMS = {
-    "la-fetch-coderabbit-threads", "la-fetch-failed-pr-checks", "la-pr-reviewers", "la-reply-invalid-coderabbit",
+    "la-fetch-review-comments", "la-fetch-failed-pr-checks", "la-pr-reviewers", "la-reply-invalid-coderabbit",
     "la-reply-to-pr-thread", "la-wait-for-reviews",
 }
 _VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")

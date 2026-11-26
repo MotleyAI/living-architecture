@@ -1,0 +1,56 @@
+# Review comments on o/r PR #7
+
+## Thread 1 — a.py:10
+URL: https://x/a1
+Resolved: false   Outdated: false   Answered: true
+
+### Comment 1 — alice  2026-01-01T00:00:00Z
+<https://x/a1>
+
+> Fix
+
+### Comment 2 — me  2026-01-02T00:00:00Z
+<https://x/a2>
+
+> Fixed
+
+---
+
+## Thread 2 — b.py:10
+URL: https://x/b1
+Resolved: false   Outdated: false   Answered: false
+
+### Comment 1 — alice  2026-01-01T00:00:00Z
+<https://x/b1>
+
+> Fix
+
+### Comment 2 — me  2026-01-02T00:00:00Z
+<https://x/b2>
+
+> Fixed
+
+### Comment 3 — alice  2026-01-03T00:00:00Z
+<https://x/b3>
+
+> Not quite
+
+---
+
+## Review bodies
+
+_No review bodies._
+
+## Conversation comments
+
+_No conversation comments._
+
+## CodeRabbit review-summary nitpicks
+
+_No nitpicks._
+
+## CodeRabbit outside-diff-range comments
+
+_No outside-diff comments._
+
+JSON: <ROOT>/tmp/review-comments-7-<TS>.json

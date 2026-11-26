@@ -36,7 +36,7 @@ HEAVY = [
     "rope", "trmv.refactor", "trmv.typecheck",
     *(f"living_architecture.{p}" for p in ("archcheck", "c4", "conventions", "affected")),
 ]
-SHIMS = ["la-fetch-coderabbit-threads", "la-reply-invalid-coderabbit", "la-reply-to-pr-thread", "la-fetch-failed-pr-checks",
+SHIMS = ["la-fetch-review-comments", "la-reply-invalid-coderabbit", "la-reply-to-pr-thread", "la-fetch-failed-pr-checks",
          "la-wait-for-reviews", "la-pr-reviewers"]
 LIGHTWEIGHT = [("la-config", ["get", "tracker"]), ("la-doctor", ["--twin"]), ("la-doctor", ["--contract-hash"]),
                *((shim, ["--help"]) for shim in SHIMS)]

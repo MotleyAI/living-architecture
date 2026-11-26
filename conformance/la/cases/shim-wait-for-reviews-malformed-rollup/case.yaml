@@ -11,7 +11,7 @@ gh:
 - match:
   - pr
   - view
-  - headRefOid,statusCheckRollup
+  - headRefOid,mergeable,statusCheckRollup
   stdout:
     headRefOid: abc
     statusCheckRollup: {}

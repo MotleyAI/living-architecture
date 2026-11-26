@@ -59,7 +59,7 @@ SHARED_FILES = (
     "architecture.yaml",
     "config.yaml",
     "regex-subset.md",
-    "scripts/fetch-coderabbit-threads.sh",
+    "scripts/fetch-review-comments.sh",
     "scripts/fetch-failed-pr-checks.sh",
     "scripts/reply-invalid-coderabbit.sh",
     "scripts/reply-to-pr-thread.sh",
@@ -806,7 +806,7 @@ def test_manifest_declares_the_passthrough_commands() -> None:
     passthrough = {name for name, spec in commands.items() if spec.get("passthrough")}
     assert passthrough >= {
         "la-count-comments",
-        "la-fetch-coderabbit-threads",
+        "la-fetch-review-comments",
         "la-reply-invalid-coderabbit",
         "la-reply-to-pr-thread",
         "la-fetch-failed-pr-checks",
@@ -1043,7 +1043,7 @@ FORMAT_EXEMPT = {
     "la-arch-migrate",
     "la-doctor",
     "trmv-doctor",
-    "la-fetch-coderabbit-threads",
+    "la-fetch-review-comments",
     "la-reply-invalid-coderabbit",
     "la-reply-to-pr-thread",
     "la-fetch-failed-pr-checks",

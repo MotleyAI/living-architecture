@@ -1,0 +1,4 @@
+usage: la-wait-for-reviews <PR_NUMBER> [--repo OWNER/REPO]
+
+  <PR_NUMBER>           required, the PR number
+  --repo OWNER/REPO     optional, defaults to the repo of the current git directory

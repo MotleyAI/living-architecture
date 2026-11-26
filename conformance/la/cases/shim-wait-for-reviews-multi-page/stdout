@@ -1,0 +1,6 @@
+review-comment alice https://github.com/o/r/pull/7#discussion_r13
+review-comment bob https://github.com/o/r/pull/7#discussion_r15
+review alice https://github.com/o/r/pull/7#pullrequestreview-23
+review bob https://github.com/o/r/pull/7#pullrequestreview-26
+pr-comment alice https://github.com/o/r/pull/7#issuecomment-31
+pr-comment bob https://github.com/o/r/pull/7#issuecomment-34

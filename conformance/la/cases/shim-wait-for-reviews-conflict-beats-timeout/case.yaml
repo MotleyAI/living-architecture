@@ -1,0 +1,49 @@
+kind: neutral
+command: la-wait-for-reviews
+args:
+- '7'
+- --repo
+- o/r
+env:
+  LA_WAIT_POLL_SECONDS: '0'
+  LA_WAIT_GATE_TIMEOUT: '0'
+gh:
+- match:
+  - pr
+  - view
+  - headRefOid,mergeable,statusCheckRollup
+  responses:
+  - stdout:
+      headRefOid: abcdef0123
+      mergeable: CONFLICTING
+      statusCheckRollup:
+      - __typename: CheckRun
+        name: lint
+        status: IN_PROGRESS
+        detailsUrl: https://github.com/o/r/actions/runs/1/job/9
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - repos/o/r/commits/abcdef0123/check-suites
+  stdout:
+    check_suites: []
+- match:
+  - repos/o/r/commits/abcdef0123/statuses
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/pulls/7/comments
+  stdout: []
+expect:
+  exit: 4
+  stderr: ignore
+golden: manual
+note: a conflict exits 4 even when the gate timeout has run out

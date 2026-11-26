@@ -1,0 +1,48 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r
+gh:
+- match:
+  - api
+  - user
+  stdout:
+    login: me
+- match:
+  - graphql
+  stdout:
+    data:
+      repository:
+        pullRequest:
+          reviewThreads:
+            pageInfo:
+              hasNextPage: false
+              endCursor: null
+            nodes: []
+- match:
+  - repos/o/r/pulls/7/reviews
+  stdout: []
+- match:
+  - repos/o/r/issues/7/comments
+  stdout:
+  - id: 61
+    user:
+      login: me
+    body: 'Re: https://github.com/o/r/pull/7#issuecomment-41'
+    html_url: https://github.com/o/r/pull/7#issuecomment-61
+    created_at: '2026-01-01T00:00:00Z'
+  - id: 41
+    user:
+      login: bob
+    body: Why?
+    html_url: https://github.com/o/r/pull/7#issuecomment-41
+    created_at: '2026-01-02T00:00:00Z'
+normalize:
+- pattern: -[0-9]{8}-[0-9]{6}\.json
+  replace: -<TS>.json
+expect:
+  exit: 0
+golden: manual
+note: a Re line older than the comment it names does not answer it

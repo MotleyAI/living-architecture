@@ -1,6 +1,6 @@
 ---
 name: reply-to-pr-thread
-description: Use when the user asks to reply / comment on a CodeRabbit (or any) PR review thread, OR when posting a reasoning/explanation reply tagging @coderabbitai for a thread you've classified as invalid. Wraps `gh api .../pulls/N/comments/<id>/replies`. Body is read from stdin.
+description: Use when the user asks to reply / comment on a PR review thread, review body or conversation comment (CodeRabbit or anyone), OR when posting a reasoning/explanation reply tagging @coderabbitai for a thread you've classified as invalid. Body is read from stdin.
 ---
 
 **Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
@@ -26,10 +26,11 @@ EOF
 
 - Body is **always read from stdin**. No `--body` / `--body-file`. Pipe text in or use a heredoc.
 - On success, the command prints the new reply's `html_url`. Report that URL back to the user.
+- A review-body URL (`#pullrequestreview-<ID>`) or conversation-comment URL (`#issuecomment-<ID>`) cannot be threaded: the command posts a PR conversation comment whose first line is `Re: <url>`, then the body. `la-fetch-review-comments` reads that line to mark the comment answered.
 
 ## Steps
 
-1. Identify the comment URL or comment ID. From the `la-fetch-coderabbit-threads` output, that's the URL printed in `Comment 1 — coderabbitai`. The integer after `discussion_r` is the comment ID.
+1. Identify the comment URL or comment ID. From the `la-fetch-review-comments` output, that's the URL printed under the comment. The integer after `discussion_r` is the comment ID.
 2. Compose the reply body. For a CodeRabbit-invalid case: lead with `@coderabbitai`, then 1–3 sentences explaining why the comment doesn't apply (cite the relevant `CLAUDE.md` rule, the existing test, or the commit hash where it was already addressed).
 3. Pipe the body into the command. Capture the printed URL.
 4. **Never** call any "resolve" mutation (`resolveReviewThread` GraphQL or its UI equivalent). This command (or `la-reply-invalid-coderabbit`, which adds the `@coderabbitai` mention) is the only allowed channel for closing the loop on a CodeRabbit thread you've classified as invalid.

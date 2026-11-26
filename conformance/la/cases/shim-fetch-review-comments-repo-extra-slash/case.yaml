@@ -1,0 +1,10 @@
+kind: neutral
+command: la-fetch-review-comments
+args:
+- '7'
+- --repo
+- o/r/x
+expect:
+  exit: 2
+golden: manual
+note: a repo with a second slash is no OWNER/REPO
