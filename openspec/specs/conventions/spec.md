@@ -151,8 +151,8 @@ flagged.
 - **THEN** no violation is reported
 
 ### Requirement: TypeScript waivers
-A trailing `// ALLOW(<rule>): <reason>` comment on the line where a flagged construct starts SHALL waive that
-rule's violation there, except for text-ratio.
+Outside stealth mode, a trailing `// ALLOW(<rule>): <reason>` comment on the line where a flagged construct starts
+SHALL waive that rule's violation there, except for text-ratio.
 
 #### Scenario: Waived import
 - **WHEN** a late import in `src/a.ts` carries `// ALLOW(import-not-top): generated`
