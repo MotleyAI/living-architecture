@@ -1,0 +1,12 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+expect:
+  exit: 0
+note: trmv-config show notes the stealth file it read on stderr
+golden: manual

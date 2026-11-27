@@ -206,6 +206,11 @@ findings:
   doctor.local-tracked: '{file} is tracked by git, but it holds one contributor''s overrides; run git rm --cached {file} and add it to .gitignore'
   doctor.local-not-ignored: '{file} is not git-ignored; add it to .gitignore'
   doctor.local-git-failed: 'git failed, so whether {file} is git-ignored cannot be checked'
+  doctor.private-store-missing: 'openspec is true and the repo tracks no openspec/, but the private OpenSpec store {id} is not set up; run /la:openspec-init'
+  # ---- stealth configs
+  config.local-in-stealth: '{file} is refused in stealth mode, since the stealth config is already per person; delete it'
+  config.leaks-not-stealth: '{path}: leaks is accepted only in the stealth config'
+  config.leak-not-waivable: '{path}: leaks.allow holds {token!r}, which is not a waivable leak token'
 
   # ---- la-check-conventions
   conventions.import-after-code: module-level import after non-import code; move it to the top of the file
@@ -241,6 +246,19 @@ findings:
   # The RED verdict's {waivers}: one example per checked language's comment prefix, joined with the separator.
   conventions.waiver-example: '''{prefix} ALLOW(import-not-top): <reason>'''
   conventions.waiver-separator: ' or '
+  # In stealth mode the RED verdict's {waivers} names the waiver ledger instead.
+  conventions.waiver-ledger: 'an entry in {path}'
+  conventions.ledger-invalid: '{path}: not a valid waiver ledger: {error}'
+  conventions.ledger-rule: 'entry {index}: rule {rule!r} is not waivable'
+
+  # ---- la-leak-check and the reply commands
+  leaks.error: 'la-leak-check: {error}'
+  leaks.not-stealth: 'la-leak-check: not in stealth mode; nothing to check'
+  leaks.branch: 'branch: {token}'
+  leaks.commit: '{commit}: {token}'
+  leaks.path: '{path}: {token}'
+  leaks.line: '{path}:{line}: {token}'
+  leaks.stdin: 'stdin:{line}: {token}'
 
   # ---- la-affected-tests
   affected.error: 'la-affected-tests: {error}'

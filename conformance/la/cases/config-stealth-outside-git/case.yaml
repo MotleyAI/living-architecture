@@ -1,0 +1,10 @@
+kind: neutral
+command: la-config
+args:
+- get
+- stealth
+git: none
+expect:
+  exit: 0
+note: outside a git repository no stealth file is looked up
+golden: manual

@@ -1,0 +1,17 @@
+kind: neutral
+command: la-doctor
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: false
+normalize:
+- version
+expect:
+  exit: 1
+  stdout:
+    contains:
+    - 'FAIL: more than one config file applies (living-architecture.yaml, <ROOT>/repo/.git/living-architecture/living-architecture.yaml);
+      keep one'
+note: the doctors report a committed and a stealth config together as a finding
+golden: manual

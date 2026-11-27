@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- stealth
+expect:
+  exit: 0
+note: a committed config is not stealth
+golden: manual

@@ -25,6 +25,8 @@ export {
   schema,
   schemaNames,
   snapshotDir,
+  stealthFiles,
+  stealthRegistry,
   timingPhases,
 } from './snapshot.js';
 export { pluginProblem } from './plugin.js';

@@ -1,0 +1,26 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: alice/abc-1-living-architecture-stealth
+- write:
+    src/a.py: |
+      X = 1
+- commit: Add a
+expect:
+  exit: 1
+note: the current branch's short name is scanned first
+golden: manual

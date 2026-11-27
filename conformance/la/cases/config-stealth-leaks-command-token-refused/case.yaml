@@ -1,0 +1,17 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      leaks: {allow: [la-doctor]}
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - la-doctor
+note: a command name is a core token and cannot be allowed
+golden: manual

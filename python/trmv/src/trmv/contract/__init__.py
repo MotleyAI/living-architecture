@@ -30,6 +30,8 @@ from trmv.contract.snapshot import (
     schema,
     schema_names,
     snapshot_dir,
+    stealth_files,
+    stealth_registry,
     timing_phases,
 )
 from trmv.contract.yaml_profile import DuplicateKeyError, YAMLError, load_yaml
@@ -69,6 +71,8 @@ __all__ = [
     "schema",
     "schema_names",
     "snapshot_dir",
+    "stealth_files",
+    "stealth_registry",
     "timing_phases",
     "validate",
 ]

@@ -1,0 +1,19 @@
+kind: neutral
+command: trmv-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- write:
+    .basedpyright/baseline.json: |
+      {"files": {}}
+normalize:
+- version
+expect:
+  exit: 1
+note: an untracked, unignored .basedpyright/baseline.json in a stealth repo is reported
+golden: manual

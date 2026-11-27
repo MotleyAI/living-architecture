@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - leaks
+    - living-architecture.yaml
+    - 'la-config: living-architecture.yaml: leaks is accepted only in the stealth config'
+note: 'leaks is a stealth-only key: a root config file setting it is a config error'
+golden: manual

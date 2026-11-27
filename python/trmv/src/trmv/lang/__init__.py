@@ -1,6 +1,7 @@
-"""The Python language adapter: units, import targets, dependency edges, conventions facts, the basedpyright specifics
-and its language-server session."""
+"""The Python language adapter: units, import targets, dependency edges, conventions facts, the basedpyright specifics,
+its language-server session and a checker environment for another revision."""
 
+from trmv.lang.checkout import CheckoutError, merge_base_checkout
 from trmv.lang.edges import dependency_edges, reverse_closure
 from trmv.lang.language_server import (
     Declaration,
@@ -51,6 +52,7 @@ __all__ = [
     "BASEDPYRIGHT_WRITE_FLAG",
     "PYRIGHT_EXPORT_PRELOAD",
     "PYRIGHT_PATCH_PRELOAD",
+    "CheckoutError",
     "Declaration",
     "Detection",
     "Diagnostic",
@@ -74,6 +76,7 @@ __all__ = [
     "dependency_edges",
     "empty_basedpyright_baseline",
     "import_targets",
+    "merge_base_checkout",
     "pyright_export_env",
     "pyright_patch_env",
     "read_pyright_export",

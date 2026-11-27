@@ -1,0 +1,13 @@
+kind: neutral
+command: la-config
+args:
+- get
+- stealth
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml/x.txt: |
+      x
+expect:
+  exit: 0
+note: a stealth config path that is not a regular file counts as absent
+golden: manual

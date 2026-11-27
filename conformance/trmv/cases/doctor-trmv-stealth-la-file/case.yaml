@@ -1,0 +1,16 @@
+kind: neutral
+command: trmv-doctor
+args:
+- --require-config
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: true
+normalize:
+- version
+expect:
+  exit: 0
+note: trmv-doctor accepts la's stealth file and runs no la-only check
+golden: manual

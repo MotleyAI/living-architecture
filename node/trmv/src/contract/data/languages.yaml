@@ -23,6 +23,9 @@
 # both match by the declaration `qualname` in `module`. `name_class_values` (python) are the class-body assignments
 # whose value names members of the class, in the listed `shapes` (`element` of a tuple, list or set display, the
 # whole `string`, a dict display's `key`).
+# `environment_dirs` are the repo-root directories holding the checker's environment (its installed dependencies),
+# linked into a stealth merge-base checkout when present; `fingerprint_files` are the repo-root files whose contents key
+# trmv-typecheck's cached merge-base result.
 # `fixture_decorators` are the decorators, as dotted names, under which a method is a test fixture: a stand-in a
 # rename leaves by default.
 # Test globs use the contract glob dialect (contract README: matched against the POSIX repo-relative path;
@@ -76,6 +79,8 @@ python:
   suppression: '# pyright: ignore[<rule>]'
   local_bin: .venv/bin
   baseline_file: .basedpyright/baseline.json
+  environment_dirs: [.venv]
+  fingerprint_files: [pyproject.toml, setup.py, setup.cfg, uv.lock, poetry.lock, requirements.txt, pyrightconfig.json]
   checker_patch_versions: ['1.40.2']
   checker_export_versions: ['1.40.2']
   cache_dir_variable: LA_CACHE_DIR
@@ -140,6 +145,8 @@ typescript:
   suppression: '// @ts-expect-error — <reason>'
   local_bin: node_modules/.bin
   baseline_file: .tsc-baseline.json
+  environment_dirs: [node_modules]
+  fingerprint_files: [package.json, package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, yarn.lock, tsconfig.json]
   runner: npx -y -p {package}@{version}
   install:
     type-rename-move: npm install -g type-rename-move@{version}

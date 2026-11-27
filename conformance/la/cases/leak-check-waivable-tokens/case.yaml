@@ -1,0 +1,25 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  arc42
+  LikeC4
+  OpenSpec
+  reset point
+  decisions log
+  pr-plan
+  pr-tests
+  pr-implement
+  pr-review
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 1
+note: every waivable token hits when not allowed
+golden: manual

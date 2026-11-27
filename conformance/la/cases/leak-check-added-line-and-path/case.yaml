@@ -1,0 +1,32 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    .tsc-baseline.json: |
+      {}
+    src/a.py: |
+      import os
+
+
+      # ALLOW(import-not-top): x
+      X = 1
+- commit: Add a
+expect:
+  exit: 1
+note: an added registry path and an added line are reported, path and line in path order
+golden: manual

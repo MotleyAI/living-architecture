@@ -156,6 +156,7 @@ ARGV = {
     "la-count-comments": ["a.py"],
     "la-typecheck": [],
     "la-affected-tests": ["--base", "main"],
+    "la-leak-check": ["--base", "main"],
     "la-fetch-review-comments": ["--help"],
     "la-reply-invalid-coderabbit": ["--help"],
     "la-reply-to-pr-thread": ["--help"],

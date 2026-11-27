@@ -46,6 +46,7 @@ from trmv.config import (
     FORMAT_KEY,
     ConfigError,
     compare_versions,
+    config_source,
     format_problem,
     is_version,
     read_committed,
@@ -548,11 +549,19 @@ STEPS = [
 ]
 
 
-def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
-    """The declared format (None when absent) and the config text; None when it is current; MigrateError when it
-    cannot be migrated."""
+def _config_name(root: Path) -> str:
+    """How messages name la's config file: the root file, or the stealth file by its absolute path."""
     try:
-        committed = read_committed(root, config_file())
+        return config_source(root, "la") or config_file()
+    except ConfigError as exc:
+        raise MigrateError(str(exc)) from exc
+
+
+def _declared(root: Path, formats: list[str], name: str) -> tuple[str | None, str] | None:
+    """The declared format (None when absent) and the text of config file `name`; None when it is current;
+    MigrateError when it cannot be migrated."""
+    try:
+        committed = read_committed(root, name)
     except ConfigError as exc:
         raise MigrateError(str(exc)) from exc
     if committed is None:
@@ -561,7 +570,7 @@ def _declared(root: Path, formats: list[str]) -> tuple[str | None, str] | None:
     if FORMAT_KEY not in data:
         return None, committed.text
     current, declared = formats[-1], data[FORMAT_KEY]
-    problem = format_problem(data, config_file(), current)
+    problem = format_problem(data, name, current)
     if problem is None:
         return None
     if not is_version(declared) or compare_versions(declared, current) > 0:
@@ -576,7 +585,8 @@ def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[
     ones); the lines to print. MigrateError or OSError having changed nothing, unless named."""
     formats = formats or released_formats(config_file())
     current = formats[-1]
-    found = _declared(root, formats)
+    name = _config_name(root)
+    found = _declared(root, formats, name)
     if found is None:
         return [message("arch-migrate.nothing", current=current)]
     declared, text = found
@@ -596,13 +606,13 @@ def migrate(root: Path, steps: list[MigrationStep] | None = None, formats: list[
     try:
         for source in sources:
             by_source[source].apply(root, tx)
-        tx.replace(config_file(), stamped)
+        tx.replace(name, stamped)
     except Exception as exc:
         failure = tx.rollback(exc)
         if failure is None:
             raise
         raise failure from exc
-    return tx.report(config_file())
+    return tx.report(name)
 
 
 def run(root: Path) -> int:

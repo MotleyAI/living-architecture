@@ -1,0 +1,1 @@
+FAIL: more than one config file applies (<ROOT>/repo/.git/trmv/trmv.yaml, <ROOT>/repo/.git/living-architecture/living-architecture.yaml); keep one

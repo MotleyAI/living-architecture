@@ -1,0 +1,16 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  clean text
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: 0.1.0
+      tracker: none
+expect:
+  exit: 2
+note: in stealth mode the stealth config's format is still checked
+golden: manual

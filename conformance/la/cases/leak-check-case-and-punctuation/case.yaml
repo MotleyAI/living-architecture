@@ -1,0 +1,17 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  Ran **LA-DOCTOR**, then the `trmv-typecheck` gate
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 1
+note: tokens match case-insensitively between non-word characters and print in contract spelling
+golden: manual

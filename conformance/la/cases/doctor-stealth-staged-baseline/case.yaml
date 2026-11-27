@@ -1,0 +1,23 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: linear
+      openspec: false
+- write:
+    .tsc-baseline.json: |
+      {}
+- stage:
+  - .tsc-baseline.json
+normalize:
+- version
+expect:
+  exit: 1
+note: 'la-doctor reports trmv''s registry too: a staged .tsc-baseline.json'
+golden: manual

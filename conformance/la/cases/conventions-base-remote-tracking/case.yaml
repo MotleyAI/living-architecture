@@ -1,0 +1,30 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- upstream/main
+fixture: conventions-base
+git:
+- commit: init
+- origin:
+  - main
+- write:
+    b.py: |
+      X = 1
+      import os
+- commit: upstream work
+- remote:
+    upstream:
+    - main
+- branch: feat
+- write:
+    a.py: |
+      X = 1
+      import os
+- commit: work
+expect:
+  exit: 1
+golden: manual
+note: '--base upstream/main resolves to refs/remotes/upstream/main: b.py, changed only on upstream, is not part of the change'

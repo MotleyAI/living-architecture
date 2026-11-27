@@ -1,0 +1,12 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+expect:
+  exit: 2
+note: 'a committed and a stealth config together: one message naming both, nothing else'
+golden: manual

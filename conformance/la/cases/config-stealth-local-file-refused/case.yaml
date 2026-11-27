@@ -1,0 +1,19 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - living-architecture.local.yaml
+    - 'la-config: living-architecture.local.yaml is refused in stealth mode, since the stealth config is already per person; delete it'
+note: a repo-root local file is a config error in stealth mode
+golden: manual

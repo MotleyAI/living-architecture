@@ -1,0 +1,16 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-config
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: linear
+      openspec: false
+normalize:
+- version
+expect:
+  exit: 0
+note: --require-config accepts the stealth file; the ok line names it as the source
+golden: manual

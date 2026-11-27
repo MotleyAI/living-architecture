@@ -6,3 +6,10 @@ files: [trmv.yaml, living-architecture.yaml]
 formats:
   trmv.yaml: [0.14.0]
   living-architecture.yaml: [0.4.0, 0.14.0]
+# Stealth mode: per package, its stealth config file under the absolute git common directory <C>, in lookup order after
+# the root files; its directory is the package's stealth directory. A command is in stealth mode iff it reads one.
+stealth_files:
+  - {package: trmv, path: trmv/trmv.yaml}
+  - {package: la, path: living-architecture/living-architecture.yaml}
+# trmv's stealth path registry: repo-relative paths that must not show in a stealth repo's working tree.
+stealth_registry: [trmv.yaml, living-architecture.yaml, .tsc-baseline.json, .basedpyright/baseline.json]

@@ -1,0 +1,28 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: "def f() -> str:\r\n    return 'x'\r\n"
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: "def f() -> str:\r\n    if True:\r\n        import os\r\n    return 'x'\r\n"
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      - {path: src/a.py, rule: import-not-top, line: import os, reason: optional dependency}
+expect:
+  exit: 0
+golden: manual
+note: 'stealth: the flagged line''s indentation and CRLF ending are ignored when matching the ledger'

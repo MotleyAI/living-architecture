@@ -1,0 +1,24 @@
+kind: neutral
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: 0.4.0
+expect:
+  exit: 2
+  stdout: ''
+  stderr:
+    contains:
+    - 0.4.0
+    - la-arch-migrate
+note: the stealth file's older format is refused naming la-arch-migrate
+golden: manual

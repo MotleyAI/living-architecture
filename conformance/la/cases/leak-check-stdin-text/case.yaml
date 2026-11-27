@@ -1,0 +1,18 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  Summary
+  Spec: OpenSpec change
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 1
+note: --text - scans each stdin line; OpenSpec hits in a repo without openspec/
+golden: manual

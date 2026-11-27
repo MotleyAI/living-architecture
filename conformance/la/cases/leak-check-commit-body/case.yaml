@@ -1,0 +1,28 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      X = 1
+- sh: |
+    git add -A
+    git commit -q -m "Add the module" -m "Checked with la-doctor first."
+expect:
+  exit: 1
+note: 'the full commit message is scanned: a token only in the body is a hit'
+golden: manual

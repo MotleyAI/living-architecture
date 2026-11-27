@@ -1,0 +1,19 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  retrmvx
+  xarc42y
+  pr_plan
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+expect:
+  exit: 0
+note: a token touched by a word character does not match
+golden: manual

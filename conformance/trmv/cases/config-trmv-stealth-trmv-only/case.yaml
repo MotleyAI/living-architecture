@@ -1,0 +1,13 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+git:
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+expect:
+  exit: 0
+note: 'a trmv-only stealth repo: <C>/trmv/trmv.yaml switches stealth on'
+golden: manual

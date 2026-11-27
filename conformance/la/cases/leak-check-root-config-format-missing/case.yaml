@@ -1,0 +1,15 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  Ran la-doctor
+git:
+- write:
+    living-architecture.yaml: |
+      tracker: linear
+expect:
+  exit: 0
+note: without a stealth config file a root config with no format is no stealth mode, not a format refusal
+golden: manual

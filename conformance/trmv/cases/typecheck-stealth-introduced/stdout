@@ -1,0 +1,4 @@
+<ROOT>/repo/pkg/m.py
+  <ROOT>/repo/pkg/m.py:10:14 - error: Argument of type "Literal['y']" cannot be assigned to parameter "a" of type "int" in function "f"
+    "Literal['y']" is not assignable to "int" (reportArgumentType)
+1 error, 0 warnings, 0 notes

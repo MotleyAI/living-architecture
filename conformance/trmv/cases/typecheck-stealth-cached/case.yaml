@@ -1,0 +1,40 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+bins:
+- dir: probe
+  position: before
+  files:
+    basedpyright: "#!/bin/sh\nif [ -d .git ]; then echo checkout > <ROOT>/repo/probe-checkout.log; else echo merge-base >\
+      \ <ROOT>/repo/probe.log; fi\nself=$(cd \"$(dirname \"$0\")\" && pwd -P)\nIFS=:\nfor d in $PATH; do\n  [ \"$(cd \"$d\"\
+      \ 2>/dev/null && pwd -P)\" = \"$self\" ] && continue\n  [ -x \"$d/basedpyright\" ] && exec \"$d/basedpyright\" \"$@\"\
+      \ndone\necho \"probe: no basedpyright on PATH\" >&2\nexit 99\n"
+git:
+- exclude:
+  - probe*.log
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    pkg/m.py: "X = 1\n\n\ndef f(a: int) -> int:\n    return a\n\n\ndef use() -> int:\n    return f(\"x\")\n"
+- commit: work
+rerun:
+- write:
+    probe.log: ''
+expect:
+  exit: 0
+  rerun_same: true
+  files:
+  - probe.log
+note: 'the second run reuses the cached merge-base result: the checker does not run at the merge base again'
+golden: manual

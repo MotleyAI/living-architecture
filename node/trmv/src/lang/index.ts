@@ -1,7 +1,9 @@
-// The TypeScript language adapter: units, import edges and conventions facts (TypeScript 6.0 API), the tsc ratchet.
+// The TypeScript language adapter: units, import edges and conventions facts (TypeScript 6.0 API), the tsc ratchet,
+// and a checker environment for another revision.
 import { Tree } from './files.js';
 import type { TsLayout, UnitStatus } from './types.js';
 
+export { CheckoutError, withMergeBaseCheckout } from './checkout.js';
 export { conventionsFacts, type ConventionsFileFacts, type Detection } from './conventions.js';
 export { dependencyEdges } from './edges.js';
 export { moduleImports } from './imports.js';
@@ -14,8 +16,10 @@ export {
   parseTscOutput,
   posixRel,
   render as renderBaseline,
+  rooted,
   type TscDiagnostic,
   type TscRun,
+  tscCounts,
 } from './tsc.js';
 export { canonical, DECLARATION_RE, posix, stripSourceExtension } from './files.js';
 export { loadProjectsFrom, owner, type Project, type Projects } from './projects.js';

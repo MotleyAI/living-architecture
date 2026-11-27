@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- get
+- openspec_store
+git:
+- write:
+    openspec/specs/a/spec.md: |
+      # a
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: true
+expect:
+  exit: 0
+note: 'the repo tracks openspec/, so no private store: an empty line'
+golden: manual

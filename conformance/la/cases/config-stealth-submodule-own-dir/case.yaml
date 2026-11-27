@@ -1,0 +1,25 @@
+kind: neutral
+command: la-config
+args:
+- get
+- stealth
+cwd: sub
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- submodule:
+    path: sub
+    files:
+      s.txt: |
+        s
+- commit: add sub
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+expect:
+  exit: 0
+note: a submodule has its own common dir, so the superproject's stealth config does not apply
+golden: manual

@@ -1,0 +1,26 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    docs/setup.md: |
+      cat living-architecture.yaml
+- commit: Document setup
+expect:
+  exit: 1
+note: a path token and the token it contains are both reported, longer first
+golden: manual

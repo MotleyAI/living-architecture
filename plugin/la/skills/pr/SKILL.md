@@ -204,6 +204,35 @@ so replace any with `-`). This keeps issue ↔ git branch ↔ OpenSpec change
 already checked that `openspec/` agrees); otherwise `OPENSPEC=0`, and skip
 everything marked *"OpenSpec repos only"* in the stage skills.
 
+## Stealth mode
+
+`STEALTH=1` iff `la-config get stealth` prints `true`: the config lives in the git common directory `<C>`
+(`git rev-parse --path-format=absolute --git-common-dir`), and nothing committed, pushed or posted may show that la or
+trmv was used. These rules then override every stage skill:
+
+- **No tracker writes.** Read the tracker issue as usual; never comment on it, change its state or post a plan to it.
+- **No la files in the repo.** Never write or commit la files in the working tree, nor OpenSpec files unless the repo
+  tracks a path under `openspec/`: then the change lives in the repo's own `openspec/`, as in any repo that uses
+  OpenSpec. With `OPENSPEC=1` and a repo that tracks nothing under `openspec/`, the change lives in the private
+  OpenSpec store: every `openspec`
+  command takes `--store $(la-config get openspec_store)`, and stage-end commits of the change go to the store's own
+  git repository (`git -C <C>/living-architecture/openspec`), naming only this change's paths; retry a commit that
+  hits another worktree's `index.lock`. With `OPENSPEC=0` the plan is `<C>/living-architecture/plans/<CHANGE_ID>.md`:
+  `pr-plan` writes it, and every stage reads it where a stage skill names the tracker plan comment.
+- **Stage detection** reads that durable plan: `openspec validate <CHANGE_ID> --strict --store <id>` passes, or the
+  plan file exists.
+- **No la vocabulary in what leaves the machine.** Commit messages, the PR title and body, and thread replies never
+  mention la, trmv, OpenSpec, specs or spec changes, stage names, reset points or the decisions log. Write them as a
+  contributor who used no tools would.
+- **The leak check.** Run `la-leak-check --base <PR base>` before every push and at every sweep, and pipe the PR title
+  and body through `la-leak-check --text -` before `gh pr create`. Fix every hit before the push or the post; ask me
+  when the fix needs a commit other than the last one reworded.
+- **Post only through the reply commands** (`la-reply-to-pr-thread`, `la-reply-invalid-coderabbit`): they refuse a
+  leaking body. Never post through raw `gh` or an MCP tool.
+- **The real base.** Pass the PR's real base to every `--base`: `upstream/<branch>` when the PR targets an `upstream`
+  remote.
+- **Preflight.** `la-arch-migrate` stamps the stealth file outside the working tree: commit nothing for it.
+
 ## Detect the stage
 
 Work out which stage this session should run — first match wins:

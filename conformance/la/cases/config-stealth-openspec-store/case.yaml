@@ -1,0 +1,21 @@
+kind: neutral
+command: la-config
+args:
+- get
+- openspec_store
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: true
+normalize:
+- pattern: la-[0-9a-f]{12}
+  replace: la-<ID>
+expect:
+  exit: 0
+note: 'the private store applies: its la- id derived from the stealth directory''s path'
+golden: manual

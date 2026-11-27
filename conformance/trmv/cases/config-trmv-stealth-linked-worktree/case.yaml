@@ -1,0 +1,21 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+cwd: <ROOT>/wt
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- worktree:
+    path: wt
+    branch: feat
+expect:
+  exit: 0
+note: trmv's stealth config in the common dir applies in a linked worktree
+golden: manual

@@ -1,0 +1,34 @@
+kind: adapter
+languages:
+- python
+command: la-check-conventions
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+- write:
+    src/a.py: |
+      def f() -> str:
+          return 'x'
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      def f() -> str:
+          import os  # ALLOW(import-not-top): optional dependency
+          return 'x'
+- commit: work
+- common_dir:
+    living-architecture/waivers.yaml: |
+      []
+expect:
+  exit: 1
+golden: manual
+note: 'stealth: an inline ALLOW comment waives nothing; with an empty ledger the violation is reported and the RED verdict
+  names the ledger'

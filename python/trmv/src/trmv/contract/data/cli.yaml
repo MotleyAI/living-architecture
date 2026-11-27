@@ -14,8 +14,8 @@
 # trmv-refactor's prose_extensions are the non-source files `rename --docs` scans for mentions.
 # language_keys: the public `lang.<language>.<key>` keys; source_globs (one `**/*<ext>` glob per source extension) and
 #              waiver (the language's waiver comment) are derived, the rest come from languages.yaml.
-# base_fetch_timeout_seconds: the best-effort `git fetch origin <base>` before a command compares with
-#              origin/<base> is killed after this many seconds; the command then uses the ref as it stands.
+# base_fetch_timeout_seconds: the best-effort `git fetch <remote> <branch>` before a command compares with a base ref
+#              is killed after this many seconds; the command then uses the ref as it stands.
 # literal_value_forbidden: the substrings a Literal member's new value may not hold (`refactor.literal-value`).
 # timing_phases: the phases `trmv-refactor --timings` reports (`refactor.timing`), in print order; `total` follows them.
 # package, plugin, doctor: the package these commands ship in, its plugin's name (how messages name the tools), and
@@ -32,14 +32,14 @@ language_keys: [source_extensions, source_globs, test_globs, declaration_globs, 
 commands:
   trmv-config:
     help: Print trmv's resolved config values for skills and scripts.
-    exit: {0: ok, 1: invalid config, 2: 'usage error, unknown key, both config files or format refusal'}
+    exit: {0: ok, 1: invalid config, 2: 'usage error, unknown key, more than one config file or format refusal'}
     options:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
     subcommands:
       get:
         help: >-
-          print one value by dotted key, e.g. commands.typecheck.python; `languages` prints the repo languages and
-          lang.<language>.<key> a language fact
+          print one value by dotted key, e.g. commands.typecheck.python; `languages` prints the repo languages,
+          lang.<language>.<key> a language fact and `stealth` whether a stealth config file is read
         positionals:
           - {name: key, help: dotted config key}
       show:
@@ -55,7 +55,7 @@ commands:
       - {name: --root, type: path, help: 'repo root (default: nearest git root of cwd)'}
       - {name: --contract-hash, type: flag, help: print the bundled contract hash and exit}
       - {name: --require-config, type: flag,
-         help: 'report that neither trmv.yaml nor living-architecture.yaml is at the repo root'}
+         help: 'report that no config file trmv reads exists, at the repo root or in the stealth directory'}
       - {name: --twin, type: flag, internal: true, help: 'print this twin''s language, version and contract hash'}
 
   trmv-typecheck:
@@ -69,6 +69,9 @@ commands:
       - {name: --realign-from, type: string, metavar: REF,
          help: 'move each Python baseline entry to where its error is now, given a commit where the baseline matched,
            then check'}
+      - {name: --base, type: string, metavar: BRANCH,
+         help: 'in stealth mode, the branch whose merge base with HEAD gives the baseline of each language the repo
+           tracks none for (default: the target of origin/HEAD)'}
       - {name: --language, type: string, choices: [python, typescript], internal: true,
          help: check only this language}
     exclusive: [[write_baseline, realign_from]]

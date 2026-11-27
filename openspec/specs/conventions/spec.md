@@ -70,10 +70,10 @@ the shared install hint.
 
 ### Requirement: The gate report is computed once in the invoking twin
 Waivers, test-file classification, the tests-only filter, text-ratio, ordering and the verdict SHALL be computed
-by the invoking twin from the facts. A waiver SHALL be the shared waiver pattern after the language's comment
-prefix on the detection's line, and SHALL NOT apply to text-ratio. Violations SHALL be ordered by path across
-languages, then by line and rule. Text-ratio SHALL be aggregated over two groups, `source` and `tests`, across
-languages. The files label in the summary and verdict SHALL list the files label of each language with at least
+by the invoking twin from the facts. Outside stealth mode, a waiver SHALL be the shared waiver pattern after the
+language's comment prefix on the detection's line; in stealth mode, waivers come from the ledger alone. A waiver
+SHALL NOT apply to text-ratio. Violations SHALL be ordered by path across languages, then by line and rule.
+Text-ratio SHALL be aggregated over two groups, `source` and `tests`, across languages. The files label in the summary and verdict SHALL list the files label of each language with at least
 one checked file, in language-id order, joined with ` and `, and SHALL be `source` when no file was checked.
 The RED verdict's waiver example SHALL use the comment prefix of each language with at least one checked file, in
 language-id order, joined with ` or `.
@@ -151,8 +151,8 @@ flagged.
 - **THEN** no violation is reported
 
 ### Requirement: TypeScript waivers
-A trailing `// ALLOW(<rule>): <reason>` comment on the line where a flagged construct starts SHALL waive that
-rule's violation there, except for text-ratio.
+Outside stealth mode, a trailing `// ALLOW(<rule>): <reason>` comment on the line where a flagged construct starts
+SHALL waive that rule's violation there, except for text-ratio.
 
 #### Scenario: Waived import
 - **WHEN** a late import in `src/a.ts` carries `// ALLOW(import-not-top): generated`
@@ -226,3 +226,46 @@ configured SHALL have no effect.
 #### Scenario: TypeScript test file
 - **WHEN** the config sets `conventions.rules: [text-ratio]` and a changed `src/a.test.ts` has `expect(a && b).toBe(true)`
 - **THEN** no `composite-assert` finding is reported
+
+### Requirement: Stealth waivers come from a ledger
+In stealth mode, `la-check-conventions` SHALL NOT treat a waiver comment as a waiver. It SHALL read the ledger
+`<C>/living-architecture/waivers.yaml` with the shared YAML profile: a list of entries, each a mapping with exactly the
+string keys `path`, `rule`, `line` and `reason`, as the shared contract's schema defines. `rule` SHALL be a waivable
+rule. A violation SHALL be waived iff an entry's `path` equals its repo-relative POSIX path, its `rule` equals the
+violation's rule, and its `line` equals the text of the violation's line with any trailing carriage return removed and
+leading and trailing whitespace trimmed; an entry SHALL waive every violation it matches. A missing ledger SHALL mean
+no waivers. A ledger that is not valid YAML or fails the schema SHALL exit 2 with a message naming the file. In stealth
+mode the RED verdict SHALL name the ledger in place of the inline waiver example. Outside stealth mode the ledger
+SHALL NOT be read.
+
+#### Scenario: Ledger waives a flagged line
+- **WHEN** a stealth repo's change adds `import os` inside a function in `src/a.py` and the ledger has `{path: src/a.py, rule: import-not-top, line: import os, reason: optional dependency}`
+- **THEN** `la-check-conventions --base main` reports no violation for it and exits 0
+
+#### Scenario: Inline waiver ignored in stealth
+- **WHEN** the same late import carries `# ALLOW(import-not-top): optional dependency` and the ledger is empty
+- **THEN** `la-check-conventions --base main` reports the violation and exits 1
+
+#### Scenario: Indentation and line endings do not matter
+- **WHEN** the flagged line is `        import os` with a CRLF ending and the entry's `line` is `import os`
+- **THEN** the violation is waived
+
+#### Scenario: Entry on another line text
+- **WHEN** the entry's `line` is `import sys` and the flagged line is `import os`
+- **THEN** the violation is reported
+
+#### Scenario: Malformed ledger
+- **WHEN** the ledger has an entry without `reason` and `la-check-conventions --base main` runs in stealth mode
+- **THEN** it exits 2 with the message naming the ledger
+
+#### Scenario: Unwaivable rule in the ledger
+- **WHEN** a ledger entry names `text-ratio`
+- **THEN** `la-check-conventions --base main` exits 2 with the message naming the ledger
+
+#### Scenario: Verdict names the ledger
+- **WHEN** a stealth run reports a waivable violation
+- **THEN** the RED verdict names `<C>/living-architecture/waivers.yaml` and shows no inline waiver example
+
+#### Scenario: Ledger ignored outside stealth
+- **WHEN** a repo with a committed config has a ledger file in `<C>/living-architecture/` and an `ALLOW` comment on a flagged line
+- **THEN** the comment waives the violation and the ledger is not read

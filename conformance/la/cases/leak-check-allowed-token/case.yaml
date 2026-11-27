@@ -1,0 +1,29 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+      leaks:
+        allow: [arc42]
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    docs/a.md: |
+      see the arc42 docs
+      and the LikeC4 view
+- commit: Document
+expect:
+  exit: 1
+note: a waivable token in leaks.allow is dropped; the others still hit
+golden: manual

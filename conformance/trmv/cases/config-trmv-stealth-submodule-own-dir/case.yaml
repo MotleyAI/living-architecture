@@ -1,0 +1,24 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+cwd: sub
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- submodule:
+    path: sub
+    files:
+      s.txt: |
+        s
+- commit: add sub
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+expect:
+  exit: 0
+note: trmv inside a submodule reads no superproject stealth config
+golden: manual

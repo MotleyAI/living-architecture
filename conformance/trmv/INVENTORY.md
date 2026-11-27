@@ -36,6 +36,17 @@ restructure; their goldens are hand-written.
 | *(new)* an la key in `trmv.yaml`: config error naming the key and the file | 1 | `config-trmv-la-key-in-trmv-file` |
 | *(new)* trmv ignores `living-architecture.local.yaml` | 0 | `config-trmv-local-file-ignored` |
 
+## Stealth mode: the config files
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* `stealth` is true: trmv's own stealth file (also from a linked worktree and a subdirectory), la's stealth file | 0 | `config-trmv-stealth-trmv-only`, `config-trmv-stealth-linked-worktree`, `config-trmv-stealth-from-subdir`, `config-trmv-stealth-la-file` |
+| *(new)* `stealth` is false: a committed la config, a submodule (its own common dir) | 0 | `config-trmv-get-stealth-committed`, `config-trmv-stealth-submodule-own-dir` |
+| *(new)* more than one config file: one message naming each, nothing else (`trmv-config`, `trmv-refactor`) | 2 | `config-trmv-stealth-two-stealth-files`, `refactor-stealth-both-committed-and-stealth` |
+| *(new)* `trmv-config show` notes the stealth file it read on stderr | 0 | `config-trmv-stealth-show-note` |
+| *(new)* config errors: `stealth` set in trmv.yaml; `architecture: true` in la's stealth file | 1 | `config-trmv-stealth-key-refused`, `config-trmv-stealth-architecture-refused` |
+| *(new)* `trmv-typecheck` checks with the command la's stealth config sets | 0 | `typecheck-stealth-reads-la-stealth-config` |
+
 ## trmv-config
 
 | Branch | Exit | Cases |
@@ -61,6 +72,8 @@ restructure; their goldens are hand-written.
 | *(new)* `--plugin` with no manifest at or above, an invalid one, or one that cannot be inspected | 1 | `doctor-trmv-plugin-not-found`, `doctor-trmv-plugin-nan`, `doctor-trmv-plugin-unreadable` |
 | *(new)* TypeScript repo language without `node`/`npx` | 1 | `doctor-trmv-typescript-missing-node` |
 | *(new)* `--twin` (internal option) prints `<language> <version> <trmv-hash>`, per twin | 0 | `doctor-trmv-twin-identity-python`, `doctor-trmv-twin-identity-typescript` |
+| *(new)* stealth: `--require-config` accepts trmv's or la's stealth file, the ok line names it; a stray file ignored through `.git/info/exclude` or the repo's own tracked baseline is no finding | 0 | `doctor-trmv-stealth-require-config`, `doctor-trmv-stealth-la-file`, `doctor-trmv-stealth-ignored-baseline`, `doctor-trmv-stealth-tracked-baseline` |
+| *(new)* stealth registry findings: an untracked, unignored `trmv.yaml` or `.basedpyright/baseline.json`; a staged `.tsc-baseline.json`; both stealth files present | 1 | `doctor-trmv-stealth-untracked-config`, `doctor-trmv-stealth-untracked-baseline`, `doctor-trmv-stealth-staged-baseline`, `doctor-trmv-stealth-multiple-files` |
 
 ## trmv-typecheck
 
@@ -91,6 +104,21 @@ restructure; their goldens are hand-written.
 | Branch | Exit | Cases |
 |---|---|---|
 | *(new)* the alias: `trmv-typecheck`'s stdout and exit, its stderr after one deprecation line naming `trmv-typecheck` and `0.14.0` | 1 | `typecheck-trmv-python-new-errors` |
+
+## trmv-typecheck in stealth mode
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* no tracked baseline: the merge base's errors are the baseline; one it has (moved down three lines) is not new, an added one is listed (no realign hint) | 0/1 | `typecheck-stealth-preexisting-moved`, `typecheck-stealth-introduced` |
+| *(new)* no tracked baseline: nothing written to the tree, the temporary merge-base worktree removed and pruned | 1 | `typecheck-stealth-nothing-written` |
+| *(new)* the merge-base result is cached per commit and fingerprint; a changed fingerprint file or a malformed cache entry runs the checker at the merge base again | 0 | `typecheck-stealth-cached`, `typecheck-stealth-fingerprint-recomputes`, `typecheck-stealth-cache-malformed` |
+| *(new)* the base ref: `--base` through the shared base resolution (a remote-tracking `upstream/main`), else the target of `refs/remotes/origin/HEAD`, else refused naming `--base` | 0/2 | `typecheck-stealth-remote-base`, `typecheck-stealth-origin-head`, `typecheck-stealth-no-base` |
+| *(new)* a checker failure at the merge base names the merge-base commit | 2 | `typecheck-stealth-merge-base-failed` |
+| *(new)* a merge-base checkout that cannot be created fails the same way, in each language | 2 | `typecheck-stealth-checkout-failed-py`, `typecheck-stealth-checkout-failed-ts` |
+| *(new)* a language whose baseline the repo tracks behaves as outside stealth | 0 | `typecheck-stealth-tracked-baseline` |
+| *(new)* `--write-baseline`, and `--realign-from` without a tracked python baseline, refused before any checker runs | 2 | `typecheck-stealth-write-refused`, `typecheck-stealth-realign-refused`, `typecheck-stealth-realign-refused-ts` (a typescript-only repo) |
+| *(new)* typescript in stealth (environment dirs linked into the merge-base worktree); a mixed repo byte-identical through either twin, `--base` passed on to the other twin | 1 | `typecheck-stealth-ts`, `typecheck-stealth-mixed` |
+| *(new)* `--base` has no effect outside stealth mode | 0 | `typecheck-stealth-base-ignored-outside` |
 
 ## trmv-compliance
 
@@ -155,6 +183,7 @@ restructure; their goldens are hand-written.
 | usage error | 2 | `mock-lint-usage-no-args` |
 | *(new)* a parsed command: `--help` prints its help and exits 0 (neutral) | 0 | `mock-lint-help` |
 | *(new)* `--base`: only findings whose count (by path, template and parameters but the line) exceeds the base's, a moved one not printed; a file renamed since the base; both languages, each block its own new findings (neutral); `origin/BRANCH` unresolvable (paired) | 1/0/2 | `mock-lint-base-new-only`, `mock-lint-base-renamed-file`, `mock-lint-base-both-blocks`, `mock-lint-base-unresolved` |
+| *(new)* `--base upstream/main` with `upstream` a remote compares with `refs/remotes/upstream/main` | 0 | `mock-lint-base-remote-tracking` |
 
 ## trmv-mock-lint: TypeScript
 

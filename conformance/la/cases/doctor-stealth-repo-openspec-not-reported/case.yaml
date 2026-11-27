@@ -1,0 +1,20 @@
+kind: neutral
+command: la-doctor
+git:
+- write:
+    openspec/specs/a/spec.md: |
+      # a
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: true
+- write:
+    openspec/changes/x/proposal.md: |
+      # x
+normalize:
+- version
+expect:
+  exit: 0
+note: the repo tracks openspec/, so its paths are the repo's own practice, not la files
+golden: manual

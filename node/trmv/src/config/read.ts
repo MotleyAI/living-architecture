@@ -1,5 +1,5 @@
 // Reading a config file: OS, decode and YAML errors become config errors from the shared templates.
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import {
   DuplicateKeyError,
   YAMLError,
@@ -15,7 +15,7 @@ import { ConfigError } from './error.js';
 
 /** The text of config file `name`, null when it does not exist; ConfigError when it cannot be read. */
 export function readConfigText(root: string, name: string): string | null {
-  const path = join(root, name);
+  const path = isAbsolute(name) ? name : join(root, name);
   let bytes: Buffer;
   try {
     if (!isRegularFile(path)) return null;

@@ -1,0 +1,38 @@
+kind: adapter
+languages:
+- python
+command: trmv-mock-lint
+args:
+- --base
+- upstream/main
+- tests/test_a.py
+git:
+- write:
+    tests/test_a.py: |
+      def test_a() -> None:
+          assert True
+- commit: base
+- origin:
+  - main
+- write:
+    tests/test_a.py: |
+      from unittest.mock import Mock
+
+
+      def test_a() -> None:
+          m = Mock()
+          assert m
+- commit: upstream work
+- remote:
+    upstream:
+    - main
+- branch: feat
+- write:
+    notes.txt: |
+      x
+- commit: work
+expect:
+  exit: 0
+golden: manual
+note: --base upstream/main compares with refs/remotes/upstream/main, which already has the unspec'd Mock(); origin/main does
+  not

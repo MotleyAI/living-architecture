@@ -1,9 +1,12 @@
-"""la's config: `living-architecture.yaml` with `living-architecture.local.yaml` merged over it, into the typed config."""
+"""la's config: `living-architecture.yaml` with `living-architecture.local.yaml` merged over it, or la's stealth config,
+into the typed config."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
@@ -12,28 +15,36 @@ from pydantic import BaseModel, ConfigDict
 
 from living_architecture.contract import (
     config_file,
+    leak_token_groups,
     local_config_file,
     manifest,
     materialize_defaults,
+    message,
     schema,
+    stealth_path,
     validate,
 )
 from trmv.config import (
     ConfigError,
+    ConfigFile,
     ConfigView,
     LanguageSettings,
     RefactorConfig,
     TypecheckConfig,
     check_string_forms,
     explicit_typecheck,
+    find_config,
     read_config,
+    stealth_dir,
+    stealth_refusal,
+    stealth_view,
 )
 from trmv.config.command import run_command as trmv_run_command
 from trmv.contract import is_portable_regex
 
 
 class RawConfig(BaseModel):
-    """The committed data with the local file merged over it, before `resolve`."""
+    """The config file's data with the local file merged over it, before `resolve`; `source` is the config file."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -41,6 +52,7 @@ class RawConfig(BaseModel):
     overrides: list[str]
     has_committed: bool
     has_local: bool
+    source: ConfigFile | None = None
 
 
 class _Strict(BaseModel):
@@ -67,6 +79,10 @@ class ConventionsConfig(_Strict):
     rules: list[str]
 
 
+class LeaksConfig(_Strict):
+    allow: list[str]
+
+
 class LaConfig(_Strict):
     """The resolved config; built only by `resolve`, so every default comes from the schemas."""
 
@@ -80,6 +96,7 @@ class LaConfig(_Strict):
     commands: CommandsConfig
     refactor: RefactorConfig
     conventions: ConventionsConfig
+    leaks: LeaksConfig = LeaksConfig(allow=[])
 
     def issue_key_re(self) -> re.Pattern[str]:
         return re.compile(self.issue_key_pattern)
@@ -119,10 +136,39 @@ def _leaves(sub: dict[str, Any], data: dict[str, Any], prefix: str = "") -> list
     return out
 
 
+def _leaks(data: Any, source: ConfigFile) -> Any:
+    """The config file's data with the stealth config's `leaks.allow` checked and defaulted; ConfigError for `leaks`
+    in a root file."""
+    name = source.display()
+    if not source.stealth:
+        if isinstance(data, dict) and "leaks" in data:
+            raise ConfigError(message("config.leaks-not-stealth", path=name))
+        return data
+    data = {} if data is None else data
+    leaks = data.get("leaks", {}) if isinstance(data, dict) else None
+    if not isinstance(leaks, dict):
+        return data
+    allow = leaks.get("allow", [])
+    waivable = leak_token_groups()[1]
+    for token in allow if isinstance(allow, list) else []:
+        if token not in waivable:
+            raise ConfigError(message("config.leak-not-waivable", path=name, token=token))
+    return {**data, "leaks": {**leaks, "allow": allow}}
+
+
 def load_raw(root: Path) -> RawConfig:
-    """Both files read and the local one checked against its schema; ConfigError naming the faulty file."""
-    committed = read_config(root, config_file())
+    """The config file and the local one read, the local one checked against its schema; ConfigError naming the
+    faulty file. In stealth mode a local file is refused."""
+    source = find_config(root, "la")
+    name = config_file() if source is None else source.display()
+    committed = read_config(root, name)
+    if source is not None and source.stealth:
+        stealth_refusal(committed, name)
+    if source is not None:
+        committed = _leaks(committed, source)
     local_path = root / local_config_file()
+    if source is not None and source.stealth and local_path.is_file():
+        raise ConfigError(message("config.local-in-stealth", file=local_config_file()))
     local = read_config(root, local_config_file())
     overrides: list[str] = []
     data = committed
@@ -139,22 +185,51 @@ def load_raw(root: Path) -> RawConfig:
     return RawConfig(
         data=data,
         overrides=overrides,
-        has_committed=(root / config_file()).is_file(),
+        has_committed=source is not None,
         has_local=local_path.is_file(),
+        source=source,
     )
 
 
 def resolve_raw(root: Path, raw: RawConfig) -> LaConfig:
-    """`raw` resolved; ConfigError naming the committed file."""
+    """`raw` resolved; ConfigError naming the config file."""
     try:
         return resolve(raw.data)
     except ValueError as exc:
-        raise ConfigError(f"{root / config_file()}: {exc}") from exc
+        name = config_file() if raw.source is None else raw.source.display()
+        raise ConfigError(f"{root / name}: {exc}") from exc
 
 
 def load_config(root: Path) -> LaConfig:
     """Config at `root`; defaults when neither file exists."""
     return resolve_raw(root, load_raw(root))
+
+
+def openspec_store_id(directory: Path) -> str:
+    """The private OpenSpec store's id: `la-` and the first 12 hex digits of the SHA-256 of la's stealth directory."""
+    return "la-" + hashlib.sha256(str(directory).encode("utf-8")).hexdigest()[:12]
+
+
+def tracks_openspec(root: Path) -> bool:
+    """Whether HEAD tracks a path under `openspec/`."""
+    try:
+        proc = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", "openspec/"], cwd=root,
+                              capture_output=True, check=False)
+    except OSError:
+        return False
+    return proc.returncode == 0 and bool(proc.stdout)
+
+
+def private_store(root: Path, cfg: LaConfig, raw: RawConfig) -> Path | None:
+    """la's stealth directory when the private OpenSpec store applies, else None."""
+    if raw.source is None or not raw.source.stealth or not cfg.openspec or tracks_openspec(root):
+        return None
+    return stealth_dir(root, "la")
+
+
+def plans_dir(directory: Path) -> Path:
+    """Where the /la:pr flow keeps its plans in stealth mode with openspec false."""
+    return directory / stealth_path("plans_dir")
 
 
 def languages_of(config: LaConfig, raw: RawConfig) -> LanguageSettings:
@@ -168,12 +243,18 @@ def la_view(root: Path) -> ConfigView:
     """la's config at `root`, as `la-config` prints it, from one read of both files."""
     raw = load_raw(root)
     config = resolve_raw(root, raw)
+    values = config.model_dump()
+    if raw.source is None or not raw.source.stealth:
+        del values["leaks"]
+    stealth_file, derived = stealth_view(root, "la")
+    store = private_store(root, config, raw)
+    derived = {**derived, "openspec_store": "" if store is None else openspec_store_id(store)}
     return ConfigView(
-        values=config.model_dump(), overrides=raw.overrides, local_file=local_config_file(),
-        languages=languages_of(config, raw),
+        values=values, overrides=raw.overrides, local_file=local_config_file(),
+        languages=languages_of(config, raw), stealth_file=stealth_file, derived=derived,
     )
 
 
 def run_command(command: str, argv: list[str], handler: Callable[[argparse.Namespace], int]) -> int:
     """`command` of la's manifest run through trmv's command runner, checking la's config file."""
-    return trmv_run_command(command, argv, handler, manifest(), config_file())
+    return trmv_run_command(command, argv, handler, manifest(), "la")

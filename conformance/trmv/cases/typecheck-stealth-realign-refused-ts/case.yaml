@@ -1,0 +1,20 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --realign-from
+- HEAD
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+expect:
+  exit: 2
+note: '--realign-from in a typescript-only stealth repo, which tracks no python baseline: refused before any checker run'
+golden: manual

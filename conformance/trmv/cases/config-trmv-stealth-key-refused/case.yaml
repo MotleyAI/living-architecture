@@ -1,0 +1,13 @@
+kind: neutral
+command: trmv-config
+args:
+- show
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - stealth
+    - trmv.yaml
+note: trmv.yaml cannot set stealth
+golden: manual

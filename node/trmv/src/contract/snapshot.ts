@@ -154,3 +154,13 @@ export function configFiles(): string[] {
 export function configFormats(file: string): string[] {
   return [...TRMV.yaml('config.yaml').formats[file]];
 }
+
+/** Each package's stealth config file, relative to the git common directory, in lookup order. */
+export function stealthFiles(): [string, string][] {
+  return (TRMV.yaml('config.yaml').stealth_files as { package: string; path: string }[]).map((e) => [e.package, e.path]);
+}
+
+/** trmv's stealth path registry: repo-relative paths that must not show in a stealth repo. */
+export function stealthRegistry(): string[] {
+  return [...TRMV.yaml('config.yaml').stealth_registry];
+}

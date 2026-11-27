@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      leaks: {allow: [living-architecture]}
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - '''living-architecture'''
+    - 'la-config: <ROOT>/repo/.git/living-architecture/living-architecture.yaml: leaks.allow holds ''living-architecture'', which is not a waivable leak token'
+note: a core token cannot be allowed; the error names the token
+golden: manual

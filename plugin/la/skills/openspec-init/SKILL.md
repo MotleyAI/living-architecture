@@ -3,6 +3,8 @@ name: openspec-init
 description: Initialize or repair OpenSpec in the current repo for the /la:pr flow. Ensures the openspec CLI is available (global install, npx fallback), scaffolds openspec/ with `openspec init --tools none` (corpus only, no /opsx:* commands), and verifies. Invoked by /la:pr when openspec/ is absent or invalid, or run directly.
 ---
 
+**Preflight:** run `la-doctor --plugin <this skill's base directory>` once per session before using any `la-*` or `trmv-*` command; if it fails, stop and show the user its output — unless the only failure is the private-store finding (the one naming `/la:openspec-init`), which Step 1b fixes. If `la-doctor` is not found, or reports the la tools older than the plugin, stop and give the user the install command at this plugin's `version` (in its `.claude-plugin/plugin.json`): `uv tool install living-architecture==<version> --with-executables-from type-rename-move` in a Python repo, `npm install -g living-architecture@<version> type-rename-move@<version>` in a TS/JS repo.
+
 Bring the current repo to a valid OpenSpec state: the `openspec` CLI resolvable
 and an `openspec/` corpus (`specs/` + `changes/`) present and healthy. Corpus
 only — no `/opsx:*` slash commands or AGENTS wiring, because the `/la:pr` flow
@@ -19,6 +21,20 @@ replaces propose/apply.
    as needed). If even npx can't fetch, STOP and tell me — do not proceed.
 
 Use `$OPENSPEC_CMD` for every openspec call below and hand it back to the caller.
+
+## Step 1b — Stealth mode: the private store
+
+If `la-config get stealth` prints `true` and `git ls-tree -r --name-only HEAD -- openspec/` prints nothing, never
+write `openspec/` into the repo; set up the private store instead and skip Steps 2–5:
+
+1. If `$OPENSPEC_CMD store --help` fails, STOP and tell me this OpenSpec CLI has no stores, so stealth mode needs a
+   newer one.
+2. Run `$OPENSPEC_CMD store setup $(la-config get openspec_store) --path <C>/living-architecture/openspec --init-git`,
+   where `<C>` is `git rev-parse --path-format=absolute --git-common-dir`.
+3. Verify: `la-doctor` reports no private-store finding, and
+   `$OPENSPEC_CMD list --store $(la-config get openspec_store)` succeeds.
+4. Stage and commit nothing in the repo. Hand back `--store $(la-config get openspec_store)` for every later
+   `openspec` call.
 
 ## Step 2 — Check repo state
 

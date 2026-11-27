@@ -1,0 +1,35 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    README.md: |
+      demo
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      X = 1
+- commit: Add a
+- branch: side
+- write:
+    src/b.py: |
+      Y = 1
+- commit: Add b
+- checkout: feat
+- merge:
+    ref: side
+    message: Merge side after la-doctor
+expect:
+  exit: 1
+note: merge commits since the merge base are scanned, oldest first with the others
+golden: manual

@@ -1042,6 +1042,7 @@ def test_manifest_declares_la_typecheck() -> None:
 FORMAT_EXEMPT = {
     "la-arch-migrate",
     "la-doctor",
+    "la-leak-check",
     "trmv-doctor",
     "la-fetch-review-comments",
     "la-reply-invalid-coderabbit",

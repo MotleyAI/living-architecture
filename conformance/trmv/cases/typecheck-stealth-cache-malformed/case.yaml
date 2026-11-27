@@ -1,0 +1,59 @@
+kind: adapter
+languages:
+- python
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+bins:
+- dir: probe
+  position: before
+  files:
+    basedpyright: |
+      #!/bin/sh
+      if [ -d .git ]; then echo checkout > <ROOT>/repo/probe-checkout.log; else echo merge-base > <ROOT>/repo/probe.log; fi
+      self=$(cd "$(dirname "$0")" && pwd -P)
+      IFS=:
+      for d in $PATH; do
+        [ "$(cd "$d" 2>/dev/null && pwd -P)" = "$self" ] && continue
+        [ -x "$d/basedpyright" ] && exec "$d/basedpyright" "$@"
+      done
+      echo "probe: no basedpyright on PATH" >&2
+      exit 99
+git:
+- exclude:
+  - probe*.log
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    pkg/m.py: |
+      X = 1
+
+
+      def f(a: int) -> int:
+          return a
+
+
+      def use() -> int:
+          return f("x")
+- commit: work
+rerun:
+- write:
+    probe.log: ''
+- sh: |
+    files=$(find .git/trmv/typecheck -type f)
+    [ -n "$files" ]
+    for f in $files; do printf 'not a cache entry\n' > "$f"; done
+expect:
+  exit: 0
+  rerun_same: true
+  files:
+  - probe.log
+note: 'a malformed cache entry is recomputed: the checker runs at the merge base again and the report is unchanged'
+golden: manual

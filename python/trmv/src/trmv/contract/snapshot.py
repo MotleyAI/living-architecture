@@ -144,11 +144,25 @@ def is_test_file(path: str) -> bool:
     return lang_id is not None and any(glob_match(g, path) for g in language(lang_id)["test_globs"])
 
 
+def _config() -> dict[str, Any]:
+    return TRMV.yaml("config.yaml")
+
+
 def config_files() -> list[str]:
     """The committed config files a trmv command reads, in order: the first present at the repo root."""
-    return list(TRMV.yaml("config.yaml")["files"])
+    return list(_config()["files"])
 
 
 def config_formats(file: str) -> list[str]:
     """Every released format of config file `file`, oldest first."""
-    return list(TRMV.yaml("config.yaml")["formats"][file])
+    return list(_config()["formats"][file])
+
+
+def stealth_files() -> list[tuple[str, str]]:
+    """Each package's stealth config file, relative to the git common directory, in lookup order."""
+    return [(entry["package"], entry["path"]) for entry in _config()["stealth_files"]]
+
+
+def stealth_registry() -> list[str]:
+    """trmv's stealth path registry: repo-relative paths that must not show in a stealth repo."""
+    return list(_config()["stealth_registry"])

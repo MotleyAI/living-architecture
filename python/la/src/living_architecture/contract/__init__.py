@@ -49,14 +49,35 @@ def architecture() -> dict[str, Any]:
     return LA.yaml("architecture.yaml")
 
 
+def _config() -> dict[str, Any]:
+    return LA.yaml("config.yaml")
+
+
 def config_file() -> str:
     """la's committed config file, relative to the repo root."""
-    return LA.yaml("config.yaml")["file"]
+    return _config()["file"]
 
 
 def local_config_file() -> str:
     """One contributor's git-ignored overrides of it."""
-    return LA.yaml("config.yaml")["local_file"]
+    return _config()["local_file"]
+
+
+def stealth_path(key: str) -> str:
+    """A stealth-mode path in la's stealth directory: `plans_dir`, `waiver_ledger` or `openspec_store`."""
+    return _config()[key]
+
+
+def stealth_registry() -> tuple[list[str], str]:
+    """la's stealth path registry, and the prefix whose paths count when the repo tracks none under it."""
+    config = _config()
+    return list(config["stealth_registry"]), config["stealth_registry_prefix"]
+
+
+def leak_token_groups() -> tuple[list[str], list[str]]:
+    """The core and the waivable leak tokens of the list."""
+    tokens = LA.yaml("vectors/stealth-leaks.yaml")
+    return list(tokens["core"]), list(tokens["waivable"])
 
 
 def script_path(name: str) -> Path:

@@ -21,6 +21,7 @@ import {
   ConfigError,
   FORMAT_KEY,
   compareVersions,
+  configSource,
   formatProblem,
   isVersion,
   readCommitted,
@@ -390,15 +391,20 @@ export class Transaction {
     this.root = root;
   }
 
+  /** A path the run touches: repo-relative, or absolute (the stealth config). */
+  private at(rel: string): string {
+    return isAbsolute(rel) ? rel : join(this.root, rel);
+  }
+
   private touch(rel: string): string {
-    const path = join(this.root, rel);
+    const path = this.at(rel);
     if (!this.first.has(rel)) this.first.set(rel, stateOf(path));
     return path;
   }
 
   private holder(rel: string): Held | null {
     if (this.held.has(rel)) return this.held.get(rel) ?? null;
-    return lexists(join(this.root, rel)) ? { origin: rel, written: false } : null;
+    return lexists(this.at(rel)) ? { origin: rel, written: false } : null;
   }
 
   private wrote(rel: string, held: Held | null): void {
@@ -432,8 +438,8 @@ export class Transaction {
     const original = stateOf(path);
     const temp = posix.join(posix.dirname(rel), `.${basename(rel)}.${randomBytes(4).toString('hex')}.tmp`);
     this.createExclusive(temp, text);
-    chmodSync(join(this.root, temp), modeOf(path));
-    renameSync(join(this.root, temp), path);
+    chmodSync(this.at(temp), modeOf(path));
+    renameSync(this.at(temp), path);
     this.undos.push(() => restore(path, original));
     this.wrote(rel, held);
   }
@@ -483,7 +489,7 @@ export class Transaction {
       }
     }
     const left = [...this.first]
-      .filter(([rel, state]) => !restored(join(this.root, rel), state))
+      .filter(([rel, state]) => !restored(this.at(rel), state))
       .map(([rel]) => rel)
       .sort(byCodePoint);
     if (left.length === 0) return null;
@@ -493,7 +499,7 @@ export class Transaction {
 
   /** The net effect: written paths (`last` last), then composed moves, then deleted paths. */
   report(last: string): string[] {
-    const exists = (rel: string): boolean => lexists(join(this.root, rel));
+    const exists = (rel: string): boolean => lexists(this.at(rel));
     const written = this.written.filter(exists);
     const ordered = [...written.filter((rel) => rel !== last), ...written.filter((rel) => rel === last)];
     const final = new Map<string, string>();
@@ -581,11 +587,22 @@ export const STEPS: MigrationStep[] = [
   { source: '0.4.0', target: '0.14.0', apply: () => undefined, config: moveExempt },
 ];
 
-/** The declared format (null when absent) and the config text; null when it is current; MigrateError when it cannot be migrated. */
-function declaredFormat(root: string, formats: string[]): [string | null, string] | null {
+/** How messages name la's config file: the root file, or the stealth file by its absolute path. */
+function configName(root: string): string {
+  try {
+    return configSource(root, 'la') ?? configFile();
+  } catch (error) {
+    if (error instanceof ConfigError) throw new MigrateError(error.message);
+    throw error;
+  }
+}
+
+/** The declared format (null when absent) and the text of config file `name`; null when it is current; MigrateError
+ * when it cannot be migrated. */
+function declaredFormat(root: string, formats: string[], name: string): [string | null, string] | null {
   let committed;
   try {
-    committed = readCommitted(root, configFile());
+    committed = readCommitted(root, name);
   } catch (error) {
     if (error instanceof ConfigError) throw new MigrateError(error.message);
     throw error;
@@ -595,7 +612,7 @@ function declaredFormat(root: string, formats: string[]): [string | null, string
   if (!data.has(FORMAT_KEY)) return [null, committed.text];
   const current = formats.at(-1) as string;
   const declared = data.get(FORMAT_KEY);
-  const problem = formatProblem(data, configFile(), current);
+  const problem = formatProblem(data, name, current);
   if (problem === null) return null;
   if (!isVersion(declared) || compareVersions(declared, current) > 0) throw new MigrateError(problem);
   if (!formats.includes(declared)) throw new MigrateError(message('arch-migrate.unknown-format', { declared, current }));
@@ -608,7 +625,8 @@ function declaredFormat(root: string, formats: string[]): [string | null, string
  */
 export function migrate(root: string, { steps = STEPS, formats = releasedFormats(configFile()) }: { steps?: MigrationStep[]; formats?: string[] } = {}): string[] {
   const current = formats.at(-1) as string;
-  const found = declaredFormat(root, formats);
+  const name = configName(root);
+  const found = declaredFormat(root, formats, name);
   if (found === null) return [message('arch-migrate.nothing', { current })];
   const [declared, text] = found;
   let stamped = stampFormat(text, current);
@@ -628,11 +646,11 @@ export function migrate(root: string, { steps = STEPS, formats = releasedFormats
   const tx = new Transaction(root);
   try {
     for (const source of sources) (bySource.get(source) as MigrationStep).apply(root, tx);
-    tx.replace(configFile(), stamped);
+    tx.replace(name, stamped);
   } catch (error) {
     throw tx.rollback(error as Error) ?? error;
   }
-  return tx.report(configFile());
+  return tx.report(name);
 }
 
 /** `la-arch-migrate`: print each written, moved and deleted path, or exit 2 having changed nothing. */

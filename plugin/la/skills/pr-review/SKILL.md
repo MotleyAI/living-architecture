@@ -9,6 +9,10 @@ issue (body + comments, if there is one), and the PR for `BRANCH` exists. If any
 missing, invoke the `la:pr` skill instead — it rehydrates and dispatches back
 here. The `/la:pr` stopping policy applies throughout this stage.
 
+**Stealth mode** (`la-config get stealth` prints `true`): the `/la:pr` "Stealth mode" rules override every step
+below that writes to the tracker, writes OpenSpec or la files into the repo, runs an `openspec` command, commits,
+pushes, or puts text in a commit, the PR or a reply.
+
 **Review sources.** `la:process-reviews` owns everything per source: which bots
 are on this PR (`la-pr-reviewers`), waiting for them, fetching, validating, and
 handling invalid findings. Every step below that names CodeRabbit or Sonar

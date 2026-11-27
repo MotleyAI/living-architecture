@@ -1,0 +1,14 @@
+kind: neutral
+command: la-config
+args:
+- get
+- stealth
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+expect:
+  exit: 0
+note: 'only the la stealth config: stealth is true'
+golden: manual

@@ -18,15 +18,15 @@ def run_command(
     argv: list[str],
     handler: Callable[[argparse.Namespace], int],
     commands: dict[str, Any] | None = None,
-    config_file: str | None = None,
+    package: str = "trmv",
 ) -> int:
-    """Parse `argv` per `commands` (default: trmv's manifest; not for a passthrough command), refuse both config files
-    and check the format of `config_file` (default: the one trmv reads) unless exempt, then run `handler`."""
+    """Parse `argv` per `commands` (default: trmv's manifest; not for a passthrough command), refuse more than one config
+    file and check the format of the one `package` reads unless exempt, then run `handler`."""
     spec = (commands or manifest())[command]
     args = argparse.Namespace() if spec.get("passthrough") else parse(command, argv, commands)
     if spec.get("format") != "exempt":
         root = _checked_root(args)
-        problem = config.both_files_problem(root) or config.check_format(root, config_file)
+        problem = config.files_problem(root) or config.check_format(root, package)
         if problem is not None:
             print(problem, file=sys.stderr)
             return 2

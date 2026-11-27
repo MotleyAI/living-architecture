@@ -1,0 +1,28 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    openspec/specs/a/spec.md: |
+      # a
+    src/a.py: |
+      X = 1
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.py: |
+      X = 2
+- commit: Update the OpenSpec change
+expect:
+  exit: 0
+note: OpenSpec is not a token when the repo tracks a path under openspec/
+golden: manual

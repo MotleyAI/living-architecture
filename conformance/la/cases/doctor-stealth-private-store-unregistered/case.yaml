@@ -1,0 +1,30 @@
+kind: neutral
+command: la-doctor
+bins:
+- dir: fake-openspec
+  position: before
+  files:
+    openspec: |
+      #!/bin/sh
+      [ "$*" = "store list --json" ] || { echo "fake openspec: unexpected $*" >&2; exit 99; }
+      echo '{"stores": [], "status": []}'
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      openspec: true
+- common_dir:
+    living-architecture/openspec/openspec/config.yaml: |
+      schema: spec-driven
+normalize:
+- version
+- pattern: la-[0-9a-f]{12}
+  replace: la-<ID>
+expect:
+  exit: 1
+note: 'the store directory exists but the OpenSpec CLI does not list its id: the same finding'
+golden: manual

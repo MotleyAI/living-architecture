@@ -113,6 +113,20 @@
           "description": "The conventions rule ids the gate enforces (conventions.yaml); [] turns the gate off."
         }
       }
+    },
+    "leaks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Stealth config only: la-leak-check's tolerated tokens.",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Waivable leak tokens (vectors/stealth-leaks.yaml) that la-leak-check does not report."
+        }
+      }
     }
   }
 }

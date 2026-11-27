@@ -1,0 +1,36 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- main
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    src/a.ts: 'export const z = 0;
+
+
+
+      export const a: number = ''x'';
+
+      '
+    src/b.ts: 'export const b: number = ''x'';
+
+      '
+- commit: work
+expect:
+  exit: 1
+note: 'stealth typescript: the merge base''s error (moved) is not new, the added one is; environment dirs are linked into
+  the merge-base worktree, so its tsc is found there'
+golden: manual

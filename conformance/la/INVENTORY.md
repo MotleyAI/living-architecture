@@ -207,6 +207,7 @@ restructure; their goldens are hand-written.
 | *(new)* usage error; `--help` | 2/0 | `arch-migrate-usage-unknown-flag`, `arch-migrate-help` |
 | *(new)* 0.4.0 → 0.14.0: `conventions.exempt` moves verbatim (comments kept), dedented, to after the `format` line; an emptied `conventions:` mapping is removed; without it only the format is stamped | 0 | `arch-migrate-exempt-block-sequence`, `arch-migrate-exempt-flow-sequence-emptied`, `arch-migrate-exempt-nothing-to-move` |
 | *(new)* 0.4.0 → 0.14.0 not migratable (a flow-style `conventions:` mapping, an alias, anchor or tag on or in the entry, a merge key in `conventions:`): names the manual edit, nothing written | 2 | `arch-migrate-exempt-flow-conventions-refused`, `arch-migrate-exempt-alias-refused`, `arch-migrate-exempt-anchor-refused`, `arch-migrate-exempt-tag-refused`, `arch-migrate-exempt-merge-key-refused` |
+| *(new)* the stealth file is migrated and stamped in place, its absolute path printed; the working tree unchanged | 0 | `arch-migrate-stealth-file` |
 
 ## la-config
 
@@ -245,6 +246,19 @@ restructure; their goldens are hand-written.
 |---|---|---|
 | *(new)* both files present: every config-reading command refuses with one message naming both, before the format check | 2 | `conventions-both-config-files-refused`, `config-both-files-refused` |
 | *(new)* an la command ignores `trmv.yaml` (no format check, no values) | 0 | `config-trmv-file-ignored-by-la` |
+
+## Stealth mode: the config files
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* the la stealth config `<C>/living-architecture/living-architecture.yaml` is read: from a linked worktree, from a subdirectory; `stealth` is true | 0 | `config-stealth-linked-worktree`, `config-stealth-from-subdir`, `config-stealth-get-stealth` |
+| *(new)* `stealth` is false: a committed config, no config file, outside git, a submodule (its own common dir), a stealth path that is not a regular file | 0 | `config-get-stealth-committed`, `config-get-stealth-no-config`, `config-stealth-outside-git`, `config-stealth-submodule-own-dir`, `config-stealth-file-is-directory` |
+| *(new)* more than one of the four config files: one message naming every file in lookup order, nothing else | 2 | `config-stealth-both-committed-and-stealth`, `config-stealth-three-files` |
+| *(new)* `la-config show` notes the stealth file it read on stderr | 0 | `config-stealth-show-note` |
+| *(new)* config errors: `stealth` set in a root or stealth file; `architecture: true` in the stealth file; the root local file in stealth; a core leak token (a name, a command) in `leaks.allow`; `leaks` in a root file — each naming the key or token and the file | 1 | `config-stealth-key-refused`, `config-stealth-key-refused-in-stealth-file`, `config-stealth-architecture-refused`, `config-stealth-local-file-refused`, `config-stealth-leaks-core-token-refused`, `config-stealth-leaks-command-token-refused`, `config-leaks-in-root-file-refused` |
+| *(new)* `leaks.allow`: a waivable token kept, empty by default | 0 | `config-stealth-leaks-allow`, `config-stealth-leaks-allow-default` |
+| *(new)* `openspec_store`: the `la-` id when the private store applies; an empty line when the repo tracks `openspec/`, with `openspec: false`, or outside stealth | 0 | `config-stealth-openspec-store`, `config-stealth-openspec-store-repo-tracks`, `config-stealth-openspec-store-disabled`, `config-openspec-store-not-stealth` |
+| *(new)* the stealth file stands in for the committed one: its older format is refused naming `la-arch-migrate` | 2 | `conventions-stealth-format-older` |
 
 ## la-config and trmv-config
 
@@ -287,6 +301,11 @@ restructure; their goldens are hand-written.
 | *(new)* the first `trmv-doctor` on `PATH` matches the invoking language, version and trmv hash: no trmv finding | 0 | `doctor-la-trmv-match-python`, `doctor-la-trmv-match-typescript` |
 | *(new)* both config files: the both-files problem once, replacing format, schema and consistency checks | 1 | `doctor-la-both-files` |
 | *(new)* `--require-config` in a trmv-only repo: the la missing-config finding | 1 | `doctor-la-require-config-trmv-only` |
+| *(new)* stealth: `--require-config` accepts the stealth file, the ok line names it; `--require-plan-store` needs no tracker or OpenSpec | 0 | `doctor-stealth-require-config`, `doctor-stealth-plan-store` |
+| *(new)* stealth with the private store: missing or not listed by the OpenSpec CLI is one finding naming `/la:openspec-init` (in place of the `openspec/` finding); set up and registered is healthy; a repo tracking `openspec/` keeps its own | 1/0 | `doctor-stealth-private-store-missing`, `doctor-stealth-private-store-unregistered`, `doctor-stealth-private-store-registered`, `doctor-stealth-repo-openspec-not-reported` |
+| *(new)* stealth registry findings (la's and trmv's paths): staged as an addition, or untracked and not ignored; paths read NUL-delimited and named verbatim | 1 | `doctor-stealth-staged-baseline`, `doctor-stealth-untracked-openspec`, `doctor-stealth-untracked-openspec-unicode-path`, `doctor-stealth-untracked-openspec-newline-path`, `doctor-stealth-untracked-index` |
+| *(new)* a committed and a stealth config together: the multiple-files finding | 1 | `doctor-stealth-multiple-files` |
+| *(new)* outside stealth no registry check runs | 0 | `doctor-stealth-not-in-stealth` |
 
 ## la-check-conventions
 
@@ -313,6 +332,11 @@ restructure; their goldens are hand-written.
 | *(new)* `conventions.rules`: unreadable/syntax-error reported iff a configured rule applies to the file | 0/1 | `conventions-rules-file-errors-gate-off`, `conventions-rules-syntax-error-rule-on`, `conventions-rules-file-error-test-only-rules` |
 | *(new)* a conventions section without `rules` keeps every registry rule | 1 | `conventions-rules-default` |
 | *(new)* a diff-derived file under the top-level `exempt` is listed as skipped and not checked | 0 | `conventions-exempt-top-level-key` |
+| *(new)* stealth: a ledger entry (path, rule, line text trimmed, trailing CR removed) waives the violations it matches, in Python and TypeScript | 0 | `conventions-stealth-ledger-waives`, `conventions-stealth-ledger-waives-ts`, `conventions-stealth-ledger-trimmed-crlf` |
+| *(new)* stealth: an inline `ALLOW` comment waives nothing; an entry on another line text waives nothing; the RED verdict names the ledger in place of the inline example | 1 | `conventions-stealth-inline-waiver-ignored`, `conventions-stealth-ledger-other-line` |
+| *(new)* stealth: a ledger failing the schema (entry without `reason`) or naming an unwaivable rule: exit 2 naming the ledger | 2 | `conventions-stealth-ledger-malformed`, `conventions-stealth-ledger-unwaivable-rule` |
+| *(new)* outside stealth the ledger is never read (an invalid one changes nothing) and the inline comment waives | 0 | `conventions-stealth-ledger-ignored-outside-stealth` |
+| *(new)* shared base resolution: `--base upstream/main` with `upstream` a remote compares with `refs/remotes/upstream/main` | 1 | `conventions-base-remote-tracking` |
 
 ## la-check-conventions: multi-language
 
@@ -357,6 +381,25 @@ restructure; their goldens are hand-written.
 | *(new)* missing `--base`; base ref missing; not a git repo; unborn HEAD; a changed path with a line break: exit 2, empty stdout | 2 | `affected-usage-no-base`, `affected-base-ref-missing`, `affected-not-a-git-repo`, `affected-unborn-head`, `affected-newline-path` |
 | *(new)* internal request (`--language L`, change list on stdin): the native selection as a JSON response, also with `--base`; another language or an unsafe path refused | 0/2 | `affected-internal-request-python`, `affected-internal-request-typescript`, `affected-internal-request-with-base-python`, `affected-internal-request-with-base-typescript`, `affected-internal-request-non-native-python`, `affected-internal-request-non-native-typescript`, `affected-internal-request-unsafe-path-python`, `affected-internal-request-unsafe-path-typescript` |
 | *(new)* the other twin: never probed for an own-language change; its selection unioned; unreachable or an invalid response: exit 2, empty stdout | 0/2 | `twin-affected-own-language-python`, `twin-affected-own-language-typescript`, `twin-affected-folded-python`, `twin-affected-folded-typescript`, `twin-affected-unavailable`, `twin-affected-response-invalid-python`, `twin-affected-response-invalid-typescript` |
+| *(new)* a fork: `--base upstream/main` computes the change against the merge base with `upstream/main` (a plain name and a slash branch stay on origin: `affected-no-changes`, `affected-py-base-branch-with-slash`) | 0 | `affected-fork-upstream-base` |
+| *(new)* a remote-tracking base that does not exist: the shared git error naming `refs/remotes/upstream/nope`, empty stdout | 2 | `affected-remote-base-ref-missing` |
+
+## la-leak-check
+
+| Branch | Exit | Cases |
+|---|---|---|
+| *(new)* `--base`: the branch name, the commit messages (merge commits included), the added and renamed-to paths and the added lines since the merge base; one line per hit | 1 | `leak-check-branch-name`, `leak-check-commit-message`, `leak-check-commit-body`, `leak-check-merge-commit`, `leak-check-added-line-and-path`, `leak-check-renamed-path`, `leak-check-path-token` |
+| *(new)* hit order: branch, commits oldest first, paths in code-point order each followed by its added lines; at one position the longer token first | 1 | `leak-check-hit-order`, `leak-check-path-token` |
+| *(new)* a detached HEAD has no branch line | 1 | `leak-check-detached-head` |
+| *(new)* nothing leaks: clean change; only removed lines name a token; OpenSpec in a repo that tracks `openspec/` | 0 | `leak-check-clean`, `leak-check-removed-lines`, `leak-check-openspec-tracked` |
+| *(new)* `leaks.allow` drops a waivable token, the others still hit | 1 | `leak-check-allowed-token` |
+| *(new)* `--base upstream/main` scans from the merge base with the remote-tracking ref | 1 | `leak-check-remote-tracking-base` |
+| *(new)* `--text -`: each stdin line; case-insensitive whole tokens in contract spelling; a token inside a word does not match; every core and every waivable token | 0/1 | `leak-check-stdin-text`, `leak-check-case-and-punctuation`, `leak-check-token-inside-word`, `leak-check-core-tokens`, `leak-check-waivable-tokens` |
+| *(new)* usage: both modes, neither mode | 2 | `leak-check-usage-both-modes`, `leak-check-usage-no-mode` |
+| *(new)* the base ref does not resolve: the shared git error | 2 | `leak-check-base-missing` |
+| *(new)* outside stealth mode: a note on stderr, nothing on stdout | 0 | `leak-check-not-stealth` |
+| *(new)* without a stealth config file an invalid root config, or one with no format, is no stealth mode: the note, exit 0 | 0 | `leak-check-root-config-invalid`, `leak-check-root-config-format-missing` |
+| *(new)* in stealth mode the stealth config's format is checked: a format refusal | 2 | `leak-check-stealth-format-older` |
 
 ## la-count-comments
 
@@ -424,6 +467,10 @@ restructure; their goldens are hand-written.
 The scripts are shared byte-for-byte between the twins. Their remaining internal branches (thread and
 comment pagination, the polling loops' sleep-and-retry paths, the default 10-minute CodeRabbit cap) depend on wall
 time or many paged responses. Those branches are pinned by `tests/test_review_scripts.py`, not by the corpus.
+| *(new)* in stealth mode a reply body naming a leak token is refused with the hits on stderr, before any `gh` call | 1 | `shim-reply-to-pr-thread-stealth-leak-refused`, `shim-reply-invalid-coderabbit-stealth-leak-refused` |
+| *(new)* a stealth config that cannot be read refuses the reply with the config error, before any `gh` call | 2 | `shim-reply-to-pr-thread-stealth-config-broken`, `shim-reply-invalid-coderabbit-stealth-config-broken` |
+| *(new)* outside stealth mode a root config with no format does not stop the reply | 0 | `shim-reply-to-pr-thread-root-format-missing` |
+| *(new)* in stealth mode a clean body is posted as before; outside stealth mode a body naming a token is posted as before | 0 | `shim-reply-to-pr-thread-stealth-clean`, `shim-reply-invalid-coderabbit-stealth-clean`, `shim-reply-to-pr-thread-stealth-off` |
 
 ## Twin forwarding
 

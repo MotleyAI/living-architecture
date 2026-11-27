@@ -1,0 +1,27 @@
+kind: neutral
+command: la-leak-check
+args:
+- --base
+- main
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+- write:
+    docs/a.md: |
+      intro
+      see arc42
+- commit: init
+- origin:
+  - main
+- branch: feat
+- write:
+    docs/a.md: |
+      intro
+- commit: Trim docs
+expect:
+  exit: 0
+note: 'only added lines are scanned: a deleted line naming a token is not'
+golden: manual

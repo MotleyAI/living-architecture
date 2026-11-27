@@ -65,6 +65,11 @@ model {
           specs ['affected-tests']
         }
       }
+      leaks = node 'Leak check' {
+        metadata {
+          specs ['stealth-leaks']
+        }
+      }
     }
 
     la -> trmv
@@ -104,12 +109,15 @@ model {
     la.cli -> la.contract
     la.cli -> la.conventions
     la.cli -> la.doctor
+    la.cli -> la.leaks
     la.cli -> la.review
     la.config -> la.contract
     la.conventions -> la.config
     la.conventions -> la.contract
     la.doctor -> la.config
     la.doctor -> la.contract
+    la.leaks -> la.config
+    la.leaks -> la.contract
     la.review -> la.contract
   }
   typescript = system 'npm twins' {
@@ -140,6 +148,7 @@ model {
       review = node 'Review shims'
       doctor = node 'Doctor'
       affected = node 'Affected tests'
+      leaks = node 'Leak check'
     }
 
     la -> trmv
@@ -179,12 +188,15 @@ model {
     la.cli -> la.contract
     la.cli -> la.conventions
     la.cli -> la.doctor
+    la.cli -> la.leaks
     la.cli -> la.review
     la.config -> la.contract
     la.conventions -> la.config
     la.conventions -> la.contract
     la.doctor -> la.config
     la.doctor -> la.contract
+    la.leaks -> la.config
+    la.leaks -> la.contract
     la.review -> la.contract
   }
 }

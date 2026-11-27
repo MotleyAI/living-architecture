@@ -1,3 +1,12 @@
 # la's committed config file at the repo root, and one contributor's git-ignored overrides of its per-person keys.
 file: living-architecture.yaml
 local_file: living-architecture.local.yaml
+# Stealth mode. la's stealth directory holds its stealth config (trmv's `stealth_files`); below, paths in it:
+# `plans_dir` keeps the /la:pr plan with openspec false, `waiver_ledger` the conventions waivers and `openspec_store`
+# the private OpenSpec store. la's stealth path registry lists the repo-relative paths that must not show in a stealth
+# repo's working tree; every path under `stealth_registry_prefix` counts too when the repo tracks none under it at HEAD.
+plans_dir: plans
+waiver_ledger: waivers.yaml
+openspec_store: openspec
+stealth_registry: [living-architecture.yaml, living-architecture.local.yaml, architecture/index.yaml]
+stealth_registry_prefix: openspec/

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from trmv.contract import (
     message,
     os_error_text,
     schema,
+    stealth_files,
     validate,
 )
 
@@ -117,17 +119,85 @@ def _present(path: Path) -> bool:
         return True
 
 
-def both_files_problem(root: Path) -> str | None:
-    """The refusal when every committed config file is at the repo root, else None."""
-    files = config_files()
-    if all(_present(root / name) for name in files):
+class ConfigFile(BaseModel):
+    """A config file a command reads, and whether it is a stealth one (in the git common directory)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    stealth: bool
+
+    def display(self) -> str:
+        """How messages name it: a root file by its name, a stealth file by its absolute path."""
+        return str(self.path) if self.stealth else self.path.name
+
+
+def common_dir(start: Path) -> Path | None:
+    """The absolute git common directory of the working tree holding `start`; None outside git."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=start, capture_output=True, check=False
+        )
+    except OSError:
+        return None
+    out = proc.stdout.decode("utf-8", "surrogateescape").rstrip("\n")
+    return Path(out) if proc.returncode == 0 and out else None
+
+
+def stealth_dir(start: Path, package: str) -> Path | None:
+    """`package`'s stealth directory under the git common directory of `start`; None outside git."""
+    common = common_dir(start)
+    if common is None:
+        return None
+    return next(common / rel for owner, rel in stealth_files() if owner == package).parent
+
+
+def present_files(root: Path) -> list[ConfigFile]:
+    """Every config file present for `root`, in lookup order: the root files, then the stealth files."""
+    found = [ConfigFile(path=root / name, stealth=False) for name in config_files() if _present(root / name)]
+    common = common_dir(root)
+    if common is not None:
+        found += [ConfigFile(path=common / rel, stealth=True) for _, rel in stealth_files() if _present(common / rel)]
+    return found
+
+
+def files_problem(root: Path) -> str | None:
+    """The refusal when more than one config file is present for `root`, else None."""
+    found = present_files(root)
+    if len(found) < 2:
+        return None
+    if not any(f.stealth for f in found):
+        files = config_files()
         return message("config.both-files", first=files[0], second=files[1])
-    return None
+    return message("config.multiple-files", files=", ".join(f.display() for f in found))
 
 
-def config_source(root: Path) -> str | None:
-    """The committed config file trmv reads: the first of the contract's files at the repo root, else None."""
-    return next((name for name in config_files() if _present(root / name)), None)
+def _package_file(package: str) -> str:
+    return next(Path(rel).name for owner, rel in stealth_files() if owner == package)
+
+
+def find_config(start: Path, package: str) -> ConfigFile | None:
+    """The config file `package`'s commands read at `start`: trmv reads the first present, la only its own file;
+    ConfigError when more than one is present."""
+    problem = files_problem(start)
+    if problem is not None:
+        raise ConfigError(problem)
+    found = present_files(start)
+    if package != "trmv":
+        found = [f for f in found if f.path.name == _package_file(package)]
+    return found[0] if found else None
+
+
+def is_stealth(root: Path, package: str = "trmv") -> bool:
+    """Whether `package`'s commands at `root` read a stealth config file; ConfigError when several are present."""
+    found = find_config(root, package)
+    return found is not None and found.stealth
+
+
+def config_source(root: Path, package: str = "trmv") -> str | None:
+    """How messages name the config file `package` reads at `root`, None without one; ConfigError when several."""
+    found = find_config(root, package)
+    return None if found is None else found.display()
 
 
 def own_file() -> str:
@@ -149,7 +219,13 @@ def _project(sub: dict[str, Any], data: Any) -> Any:
 
 def trmv_data(data: Any, name: str) -> Any:
     """The trmv keys of config file `name`'s data: all of trmv's own file, and trmv's share of another package's file."""
-    return data if name == own_file() or not isinstance(data, dict) else _project(_own_schema(), data)
+    return data if Path(name).name == own_file() or not isinstance(data, dict) else _project(_own_schema(), data)
+
+
+def stealth_refusal(data: Any, name: str) -> None:
+    """ConfigError when stealth config file `name` sets what cannot stay private."""
+    if isinstance(data, dict) and data.get("architecture") is True:
+        raise ConfigError(message("config.stealth-architecture", path=name))
 
 
 def check_string_forms(patterns: list[str]) -> None:
@@ -176,8 +252,14 @@ def resolve(data: Any) -> TrmvConfig:
 
 def load_dr_data(root: Path) -> tuple[Any, str | None]:
     """trmv's share of the config file it reads, and that file's name; (None, None) without one."""
-    name = config_source(root)
-    return (None, None) if name is None else (trmv_data(read_config(root, name), name), name)
+    found = find_config(root, "trmv")
+    if found is None:
+        return None, None
+    name = found.display()
+    data = read_config(root, name)
+    if found.stealth:
+        stealth_refusal(data, name)
+    return trmv_data(data, name), name
 
 
 def _resolved(root: Path, data: Any, name: str | None) -> TrmvConfig:

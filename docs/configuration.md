@@ -139,6 +139,79 @@ The file holds one person's settings, so it must stay out of git: add `living-ar
 ignore it. A local file alone does not onboard a repo: `la-doctor --require-config` still asks for the committed
 file.
 
+## Stealth mode
+
+Stealth mode lets one person use the tools and the `/la:pr` flow in a repo they don't own, so that nothing committed,
+pushed or posted shows they were used. It keeps every la and trmv file outside the working tree, in the repo's git
+common directory `<C>` (`git rev-parse --git-common-dir`). Git never tracks it, and every linked worktree of the
+repo shares it. A submodule has its own.
+
+**Switching it on.** Put the config in a stealth directory instead of the repo root:
+`<C>/living-architecture/living-architecture.yaml` for la, or `<C>/trmv/trmv.yaml` in a repo that uses only trmv.
+There is no flag: a command is in stealth mode when the config file it reads is a stealth one.
+`la-config get stealth` and `trmv-config get stealth` print `true` or `false`, and `show` notes the stealth file on
+stderr. `/la:init` and `/trmv:init` offer this setup.
+
+**Lookup.** trmv commands read the first of `trmv.yaml` and `living-architecture.yaml` at the repo root, then
+`<C>/trmv/trmv.yaml`, then `<C>/living-architecture/living-architecture.yaml`. la commands read
+`living-architecture.yaml` at the root, else la's stealth file. With more than one of the four present, every
+command exits 2 naming them all, and the doctors report it. Outside a git repository nothing is looked up in `<C>`.
+`la-arch-migrate` stamps the stealth file in place.
+
+**What a stealth config refuses.** `architecture: true`, since a model that is not versioned with the code cannot
+stay true across branches. A `living-architecture.local.yaml` at the repo root, since the stealth config is already
+per person. `stealth` as a key in any config file. The la stealth config alone accepts `leaks.allow` (below).
+
+**The doctors.** `la-doctor` and `trmv-doctor` accept the stealth file for `--require-config` and name it as the
+source. In stealth mode they fail for each la or trmv path that shows in the working tree: staged as an addition,
+or untracked and not ignored. The paths are `living-architecture.yaml`, `living-architecture.local.yaml`,
+`architecture/index.yaml`, `trmv.yaml`, `.tsc-baseline.json`, `.basedpyright/baseline.json`, and every path under
+`openspec/` when the repo tracks nothing there. Delete such a file, or list it in `.git/info/exclude`. A file the repo
+already tracks is the repo's own.
+
+**OpenSpec and plans.** `openspec` stays your choice. With `openspec: true`, a repo that tracks `openspec/` keeps its
+changes there. Otherwise they go to a private OpenSpec store at `<C>/living-architecture/openspec/`, registered with
+the OpenSpec CLI. `la-config get openspec_store` prints its id, `la-doctor` reports it when it is not set up, and
+`/la:openspec-init` sets it up. With `openspec: false` the `/la:pr` plan is kept in `<C>/living-architecture/plans/`,
+so `--require-plan-store` accepts any tracker. In stealth mode the flow writes nothing to the tracker.
+
+**The leak check.** `la-leak-check --base BRANCH` scans the branch name, the commit messages and the added paths and
+lines since the merge base for tokens that show la or trmv was used. `la-leak-check --text -` scans stdin. It prints
+one line per hit and exits 1 when it found any. The tokens are la's and trmv's names, slash commands, `ALLOW(`,
+every command name and every path above. Those can never be allowed. Some vocabulary is waivable: `arc42`,
+`LikeC4`, `OpenSpec`, `reset point`, `decisions log` and the `/la:pr` stage names. List a waivable token in the stealth
+config to drop it:
+
+```yaml
+leaks:
+  allow: [arc42]
+```
+
+`OpenSpec` is no token in a repo that tracks `openspec/`. `la-reply-to-pr-thread` and `la-reply-invalid-coderabbit`
+refuse to post a body with a hit, before any network call. Outside stealth mode the leak check prints a note and
+exits 0.
+
+**The type-check baseline.** A stealth repo commits no baseline, so `trmv-typecheck` compares with the checker's
+errors at the merge base of `--base BRANCH` (default: the target of `origin/HEAD`) and HEAD. It checks out the
+merge base in a temporary worktree, with `.venv` or `node_modules` linked in, and removes it afterwards. The result is
+cached under `<C>/trmv/typecheck/`, keyed by the commit, the command, the trmv version and the language's
+dependency files. A language whose baseline the repo tracks behaves as usual. `--write-baseline` is refused, and so
+is `--realign-from` without a tracked Python baseline.
+
+**Waivers.** An inline `ALLOW(<rule>): <reason>` comment would show in the diff, so in stealth mode
+`la-check-conventions` ignores it. It reads waivers from `<C>/living-architecture/waivers.yaml` instead:
+
+```yaml
+- {path: src/a.py, rule: import-not-top, line: import os, reason: optional dependency}
+```
+
+An entry waives every violation of `rule` in `path` whose line reads `line`, after trimming its whitespace and line
+ending. Only waivable rules can be listed.
+
+**Base refs.** Every `--base` (`la-affected-tests`, `la-check-conventions`, `la-leak-check`, `trmv-mock-lint`,
+`trmv-typecheck`) accepts `REMOTE/BRANCH` of a configured remote, such as `upstream/main` in a fork; anything else
+means `origin/BRANCH`. A branch on origin whose name starts with a remote's name plus `/` reads as that remote's.
+
 ## Review bots
 
 CodeRabbit and Sonar are not configured: `la-pr-reviewers <PR>` detects them on each PR. CodeRabbit counts as

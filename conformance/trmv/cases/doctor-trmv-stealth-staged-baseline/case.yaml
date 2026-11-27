@@ -1,0 +1,21 @@
+kind: neutral
+command: trmv-doctor
+git:
+- write:
+    README.md: |
+      demo
+- commit: init
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+- write:
+    .tsc-baseline.json: |
+      {}
+- stage:
+  - .tsc-baseline.json
+normalize:
+- version
+expect:
+  exit: 1
+note: a .tsc-baseline.json staged as an addition in a stealth repo is reported
+golden: manual

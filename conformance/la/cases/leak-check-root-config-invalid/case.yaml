@@ -1,0 +1,12 @@
+kind: neutral
+command: la-leak-check
+args:
+- --text
+- '-'
+stdin: |
+  Ran la-doctor
+fixture: config-invalid
+expect:
+  exit: 0
+note: without a stealth config file an invalid root config is no stealth mode
+golden: manual

@@ -7,10 +7,10 @@ The source of truth both trmv twins obey. Each twin vendors a byte-copy of this 
 |---|---|
 | `schema/trmv.schema.json` | trmv's config keys (`format`, `exempt`, `commands.test`, `commands.typecheck`, `refactor`), their types and defaults |
 | `schema/rename-map.schema.json`, `schema/word-table.schema.json` | `trmv-refactor rename-map`'s map and `generate-map`'s word table |
-| `config.yaml` | the committed config files trmv reads, in order, and each file's released formats |
+| `config.yaml` | the committed config files trmv reads, in order, each file's released formats, the stealth config files and trmv's stealth path registry |
 | `findings.yaml` | every finding, verdict and hint a trmv command prints, by id |
 | `cli.yaml` | every trmv command's options, positionals, subcommands, exit codes and native languages; the public language keys; the base-branch fetch timeout |
-| `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command |
+| `languages.yaml` | per-language extensions, test globs, comment prefix, suppression syntax, twin runner and install command, environment directories and fingerprint files |
 | `regex-subset.md` | the portable regex subset of `issue_key_pattern` and `refactor.string_forms` |
 | `vectors/` | input/output vectors both test suites consume |
 

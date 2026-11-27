@@ -9,6 +9,10 @@ issue (body + comments), if there is one. If any of that is missing, invoke the 
 instead — it rehydrates and dispatches back here. The `/la:pr` stopping policy
 applies throughout this stage.
 
+**Stealth mode** (`la-config get stealth` prints `true`): the `/la:pr` "Stealth mode" rules override every step
+below that writes to the tracker, writes OpenSpec or la files into the repo, runs an `openspec` command, commits,
+pushes, or puts text in a commit, the PR or a reply.
+
 ## Step 1 — Combine and interview
 
 Treat the tracker issue body + comments AND whatever I typed when invoking

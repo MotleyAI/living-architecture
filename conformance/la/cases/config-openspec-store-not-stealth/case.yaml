@@ -1,0 +1,9 @@
+kind: neutral
+command: la-config
+args:
+- get
+- openspec_store
+expect:
+  exit: 0
+note: outside stealth mode there is no private store
+golden: manual

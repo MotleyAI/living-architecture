@@ -1,0 +1,17 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+cwd: sub/dir
+git:
+- write:
+    sub/dir/x.txt: |
+      x
+- common_dir:
+    trmv/trmv.yaml: |
+      format: 0.14.0
+expect:
+  exit: 0
+note: from a nested directory trmv finds its stealth config
+golden: manual

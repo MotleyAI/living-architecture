@@ -1,0 +1,30 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#discussion_r1
+stdin: |
+  Fixed in the next commit
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+env:
+  FAKE_GH_LOG: <ROOT>/repo/gh.log
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/1/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r9
+expect:
+  exit: 2
+  files:
+  - gh.log
+  stderr:
+    contains:
+    - more than one config file applies
+note: a stealth config that cannot be read refuses the reply before any gh call
+golden: manual

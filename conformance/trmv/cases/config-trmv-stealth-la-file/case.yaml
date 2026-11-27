@@ -1,0 +1,14 @@
+kind: neutral
+command: trmv-config
+args:
+- get
+- stealth
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+expect:
+  exit: 0
+note: trmv reads la's stealth config and is in stealth mode
+golden: manual

@@ -1,0 +1,16 @@
+kind: neutral
+command: la-doctor
+args:
+- --require-plan-store
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: none
+      openspec: false
+normalize:
+- version
+expect:
+  exit: 0
+note: in stealth the plan is kept in the stealth directory, so tracker none with openspec false is fine
+golden: manual

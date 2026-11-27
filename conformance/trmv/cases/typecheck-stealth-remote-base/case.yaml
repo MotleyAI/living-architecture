@@ -1,0 +1,36 @@
+kind: adapter
+languages:
+- typescript
+command: trmv-typecheck
+fixture: typecheck-stealth
+args:
+- --base
+- upstream/main
+git:
+- exclude:
+  - node_modules/
+- common_dir:
+    trmv/trmv.yaml: 'format: 0.14.0
+
+      '
+- commit: init
+- origin:
+  - main
+- write:
+    src/b.ts: 'export const b: number = ''x'';
+
+      '
+- commit: upstream
+- remote:
+    upstream:
+    - main
+- branch: feat
+- write:
+    src/c.ts: 'export const c = 3;
+
+      '
+- commit: work
+expect:
+  exit: 0
+note: '--base upstream/main: the merge base with upstream already has the b.ts error that origin/main lacks'
+golden: manual

@@ -155,3 +155,44 @@ def test_a_git_failure_is_not_taken_for_an_unknown_ref(tmp_path):
     with pytest.raises(ConfigError) as exc:
         changes.commit_id(ref="HEAD", repo_root=tmp_path)
     assert "git" in str(exc.value)
+
+
+def _rev(repo: Path, ref: str) -> str:
+    return subprocess.run(["git", "rev-parse", ref], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+
+
+@pytest.fixture
+def upstream(repo: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A bare `upstream` remote holding main."""
+    bare = tmp_path_factory.mktemp("upstream") / "upstream.git"
+    _git(repo, "init", "-q", "--bare", str(bare))
+    _git(repo, "remote", "add", "upstream", str(bare))
+    _git(repo, "push", "-q", "upstream", "main")
+    return bare
+
+
+def test_a_slash_branch_without_such_a_remote_is_on_origin(repo):
+    _git(repo, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
+    assert changes.resolve_base_ref(base="feature/x", repo_root=repo) == "origin/feature/x"
+
+
+def test_a_remote_tracking_base_is_that_remotes_ref(repo, upstream):
+    assert changes.resolve_base_ref(base="upstream/main", repo_root=repo) == "refs/remotes/upstream/main"
+
+
+def test_a_remote_tracking_base_is_fetched_from_its_remote(repo, upstream):
+    _git(repo, "push", "-q", str(upstream), "feat:refs/heads/main")
+    changes.resolve_base_ref(base="upstream/main", repo_root=repo)
+    assert _rev(repo, "refs/remotes/upstream/main") == _rev(repo, "feat")
+
+
+def test_a_missing_remote_tracking_base(repo, upstream):
+    with pytest.raises(ConfigError) as exc:
+        changes.resolve_base_ref(base="upstream/nope", repo_root=repo)
+    assert str(exc.value) == "git rev-parse --verify --quiet refs/remotes/upstream/nope failed"
+
+
+def test_a_remote_name_alone_is_an_origin_branch(repo, upstream):
+    with pytest.raises(ConfigError) as exc:
+        changes.resolve_base_ref(base="upstream/", repo_root=repo)
+    assert str(exc.value) == "git rev-parse --verify --quiet origin/upstream/ failed"

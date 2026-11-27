@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- get
+- tracker
+cwd: sub/dir
+git:
+- write:
+    sub/dir/x.txt: |
+      x
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      tracker: github
+expect:
+  exit: 0
+note: from a nested directory the same stealth config is read
+golden: manual

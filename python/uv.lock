@@ -68,6 +68,7 @@ version = "0.0.0"
 source = { editable = "conformance" }
 dependencies = [
     { name = "living-architecture" },
+    { name = "pydantic" },
     { name = "pyyaml" },
     { name = "type-rename-move" },
 ]
@@ -75,6 +76,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "living-architecture", editable = "la" },
+    { name = "pydantic", specifier = ">=2" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "type-rename-move", editable = "trmv" },
 ]

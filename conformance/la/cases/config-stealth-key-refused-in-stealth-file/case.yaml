@@ -1,0 +1,18 @@
+kind: neutral
+command: la-config
+args:
+- show
+git:
+- common_dir:
+    living-architecture/living-architecture.yaml: |
+      format: <FORMAT>
+      stealth: false
+expect:
+  exit: 1
+  stdout: ''
+  stderr:
+    contains:
+    - stealth
+    - <ROOT>/repo/.git/living-architecture/living-architecture.yaml
+note: the stealth file cannot set stealth either; the error names the stealth file
+golden: manual
