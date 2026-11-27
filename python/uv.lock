@@ -128,7 +128,7 @@ wheels = [
 
 [[package]]
 name = "living-architecture"
-version = "0.14.0"
+version = "0.15.0"
 source = { editable = "la" }
 dependencies = [
     { name = "jsonschema" },
@@ -619,7 +619,7 @@ wheels = [
 
 [[package]]
 name = "type-rename-move"
-version = "0.14.0"
+version = "0.15.0"
 source = { editable = "trmv" }
 dependencies = [
     { name = "basedpyright" },

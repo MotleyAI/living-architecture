@@ -52,8 +52,8 @@ For an example of a project using this, look at [SLayer](https://github.com/Motl
 /plugin install la@living-architecture
 
 # the commands (la-*, trmv-*), pinned to the same version as the plugin, from your repo's ecosystem
-uv tool install living-architecture==0.14.0 --with-executables-from type-rename-move   # Python repos (Python >= 3.11)
-npm install -g living-architecture@0.14.0 type-rename-move@0.14.0                      # TypeScript/JavaScript repos (Node >= 22)
+uv tool install living-architecture==0.15.0 --with-executables-from type-rename-move   # Python repos (Python >= 3.11)
+npm install -g living-architecture@0.15.0 type-rename-move@0.15.0                      # TypeScript/JavaScript repos (Node >= 22)
 ```
 
 The repo ships two packages that release together: `type-rename-move` (the `trmv-*` commands and the `trmv`
@@ -77,7 +77,7 @@ With only trmv, update `trmv@living-architecture` in step 1 and rerun its instal
 preflight catches a gap between these steps and prints the fix.
 
 **From 0.13:** renames and moves are now the `trmv` package and plugin: `trmv-refactor`, `trmv-compliance`,
-`trmv-mock-lint`, `trmv-typecheck` and the `trmv:` skills. `la-typecheck` stays as a deprecated alias until 0.15.0.
+`trmv-mock-lint`, `trmv-typecheck` and the `trmv:` skills. `la-typecheck` stays as a deprecated alias until 0.16.0.
 
 ### Just renames and moves
 
@@ -85,8 +85,8 @@ To get verified renames and moves without the architecture workflow, install onl
 
 ```bash
 /plugin install trmv@living-architecture
-uv tool install type-rename-move==0.14.0      # Python repos
-npm install -g type-rename-move@0.14.0        # TypeScript/JavaScript repos
+uv tool install type-rename-move==0.15.0      # Python repos
+npm install -g type-rename-move@0.15.0        # TypeScript/JavaScript repos
 ```
 
 Then run `/trmv:init` in the repo: it writes `trmv.yaml` with the test and type-check commands.

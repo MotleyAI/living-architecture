@@ -1,7 +1,7 @@
 {
   "name": "trmv",
   "description": "Verified renames and moves for Python and TypeScript code: every import and reference rewritten, checked by a type-check gate against a committed baseline.",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "author": {
     "name": "MotleyAI"
   },

@@ -272,7 +272,7 @@ findings:
   count-comments.unknown-extension: 'count-comments: unknown extension, skipped: {path}'
 
   # ---- la-typecheck, the deprecated alias of trmv-typecheck
-  typecheck-alias.deprecated: 'la-typecheck is deprecated and will be removed in 0.15.0; run trmv-typecheck instead'
+  typecheck-alias.deprecated: 'la-typecheck is deprecated and will be removed in 0.16.0; run trmv-typecheck instead'
 
   # ---- the twin's documents (la's facts requests)
   twin.facts-invalid: 'the {language} twin ({package} {version}) returned invalid facts; reinstall it with: {install}'

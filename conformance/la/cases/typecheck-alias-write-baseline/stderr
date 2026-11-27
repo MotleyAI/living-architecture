@@ -1,3 +1,3 @@
-la-typecheck is deprecated and will be removed in 0.15.0; run trmv-typecheck instead
+la-typecheck is deprecated and will be removed in 0.16.0; run trmv-typecheck instead
 trmv-typecheck: checking python with basedpyright
 trmv-typecheck: python: wrote .basedpyright/baseline.json
