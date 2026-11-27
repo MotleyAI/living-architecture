@@ -35,7 +35,7 @@ required for a public invocation; missing it is a usage error (exit 2).
 - **THEN** the changed set is computed against the merge base with `upstream/main`
 
 ### Requirement: The changed set covers committed, working-tree and untracked changes, deletions included
-The changed set SHALL be the union of the files changed between the merge base of `origin/<BRANCH>` and `HEAD`,
+The changed set SHALL be the union of the files changed between the merge base of the base ref and `HEAD`,
 the files changed between `HEAD` and the working tree (staged or not), and the untracked files that are not
 ignored. Deleted files SHALL be in the changed set. A rename SHALL count as the deletion of the old path and the
 addition of the new one. Git paths SHALL be read NUL-delimited, independent of `core.quotePath`.

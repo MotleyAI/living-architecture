@@ -116,7 +116,7 @@ restructure; their goldens are hand-written.
 | *(new)* a checker failure at the merge base names the merge-base commit | 2 | `typecheck-stealth-merge-base-failed` |
 | *(new)* a merge-base checkout that cannot be created fails the same way, in each language | 2 | `typecheck-stealth-checkout-failed-py`, `typecheck-stealth-checkout-failed-ts` |
 | *(new)* a language whose baseline the repo tracks behaves as outside stealth | 0 | `typecheck-stealth-tracked-baseline` |
-| *(new)* `--write-baseline`, and `--realign-from` without a tracked python baseline, refused before any checker runs | 2 | `typecheck-stealth-write-refused`, `typecheck-stealth-realign-refused` |
+| *(new)* `--write-baseline`, and `--realign-from` without a tracked python baseline, refused before any checker runs | 2 | `typecheck-stealth-write-refused`, `typecheck-stealth-realign-refused`, `typecheck-stealth-realign-refused-ts` (a typescript-only repo) |
 | *(new)* typescript in stealth (environment dirs linked into the merge-base worktree); a mixed repo byte-identical through either twin, `--base` passed on to the other twin | 1 | `typecheck-stealth-ts`, `typecheck-stealth-mixed` |
 | *(new)* `--base` has no effect outside stealth mode | 0 | `typecheck-stealth-base-ignored-outside` |
 

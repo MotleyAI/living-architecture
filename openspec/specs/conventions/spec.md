@@ -70,10 +70,10 @@ the shared install hint.
 
 ### Requirement: The gate report is computed once in the invoking twin
 Waivers, test-file classification, the tests-only filter, text-ratio, ordering and the verdict SHALL be computed
-by the invoking twin from the facts. A waiver SHALL be the shared waiver pattern after the language's comment
-prefix on the detection's line, and SHALL NOT apply to text-ratio. Violations SHALL be ordered by path across
-languages, then by line and rule. Text-ratio SHALL be aggregated over two groups, `source` and `tests`, across
-languages. The files label in the summary and verdict SHALL list the files label of each language with at least
+by the invoking twin from the facts. Outside stealth mode, a waiver SHALL be the shared waiver pattern after the
+language's comment prefix on the detection's line; in stealth mode, waivers come from the ledger alone. A waiver
+SHALL NOT apply to text-ratio. Violations SHALL be ordered by path across languages, then by line and rule.
+Text-ratio SHALL be aggregated over two groups, `source` and `tests`, across languages. The files label in the summary and verdict SHALL list the files label of each language with at least
 one checked file, in language-id order, joined with ` and `, and SHALL be `source` when no file was checked.
 The RED verdict's waiver example SHALL use the comment prefix of each language with at least one checked file, in
 language-id order, joined with ` or `.

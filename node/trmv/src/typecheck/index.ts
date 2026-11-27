@@ -262,7 +262,7 @@ function stealthRun(root: string, languages: string[], write: boolean, realignFr
     return 2;
   }
   const untracked = languages.filter((id) => !trackedAtHead(language(id).baseline_file as string, root));
-  if (realignFrom !== null && untracked.includes('python')) {
+  if (realignFrom !== null && !trackedAtHead(language('python').baseline_file as string, root)) {
     err(message('typecheck.stealth-realign-refused'));
     return 2;
   }

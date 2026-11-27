@@ -490,7 +490,7 @@ def _stealth(root: Path, languages: list[str], *, write: bool, ref: str | None, 
         return 2
     untracked = [lang_id for lang_id in languages
                  if not changes.tracked_at_head(path=language(lang_id)["baseline_file"], repo_root=root)]
-    if ref is not None and "python" in untracked:
+    if ref is not None and not changes.tracked_at_head(path=language("python")["baseline_file"], repo_root=root):
         _err(message("typecheck.stealth-realign-refused"))
         return 2
     if not untracked:

@@ -46,7 +46,7 @@ order they occur, and SHALL exit 1 when it printed a hit, 0 otherwise, and 2 on 
 stealth config file it SHALL print a note on stderr, nothing on stdout, and exit 0, whatever the root config holds.
 
 #### Scenario: Leaking branch name
-- **WHEN** the current branch is `egor/dev-1-living-architecture-stealth` and `la-leak-check --base main` runs in stealth mode
+- **WHEN** the current branch is `alice/abc-1-living-architecture-stealth` and `la-leak-check --base main` runs in stealth mode
 - **THEN** it prints `branch: living-architecture` and exits 1
 
 #### Scenario: Leaking commit message
