@@ -18,7 +18,7 @@ which depends on it.
 | `la-arch-migrate` | Convert the repo to the current `format` one released format at a time: a repo without one first gets a legacy `architecture/model/*.c4` model merged into `architecture/model.c4` and the retired `arc42` key format converted; then stamp `format` (verified, all-or-nothing) |
 | `la-check-conventions <PR>` / `--base BRANCH` | Imports-at-top, text-ratio and test-assertion gate on changed `.py` and TS/JS files |
 | `la-count-comments` | Count comment and doc (docstring, JSDoc) lines, or the net change vs a git ref |
-| `la-typecheck` | Deprecated alias of `trmv-typecheck` until 0.15.0: same output and exit, plus one deprecation line on stderr |
+| `la-typecheck` | Deprecated alias of `trmv-typecheck` until 0.16.0: same output and exit, plus one deprecation line on stderr |
 | `la-affected-tests --base BRANCH` | Print the test files a change can affect, one per line, without running them |
 | `la-leak-check --base BRANCH` / `--text -` | In [stealth mode](configuration.md#stealth-mode), print the tokens that show la or trmv was used in a branch or in stdin |
 | `la-pr-reviewers <PR>` | Which review bots ran on a PR (CodeRabbit, Sonar and its project key), as JSON |
