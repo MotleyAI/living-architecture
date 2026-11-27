@@ -67,7 +67,7 @@ def test_format_exempt_commands() -> None:
     exempt = {
         name for package in ("trmv", "la") for name, spec in _commands(package).items() if spec.get("format") == "exempt"
     }
-    assert exempt == {"la-arch-migrate", "la-doctor", "trmv-doctor", *REVIEW_SHIMS}
+    assert exempt == {"la-arch-migrate", "la-doctor", "la-leak-check", "trmv-doctor", *REVIEW_SHIMS}
 
 
 def test_trmv_commands_native_languages() -> None:

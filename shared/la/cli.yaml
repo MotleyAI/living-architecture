@@ -141,6 +141,7 @@ commands:
       In stealth mode, report the tokens that show la or trmv was used: in the branch name, the commit messages, the
       added paths and the added lines since the merge base with a base branch, or in the lines of stdin.
     exit: {0: no token found or not in stealth mode, 1: tokens found, 2: 'usage, config or git error, or format refusal'}
+    format: exempt
     options:
       - {name: --base, type: string, metavar: BRANCH,
          help: 'base branch (origin/BRANCH, or REMOTE/BRANCH of a configured remote)'}

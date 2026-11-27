@@ -398,7 +398,8 @@ restructure; their goldens are hand-written.
 | *(new)* usage: both modes, neither mode | 2 | `leak-check-usage-both-modes`, `leak-check-usage-no-mode` |
 | *(new)* the base ref does not resolve: the shared git error | 2 | `leak-check-base-missing` |
 | *(new)* outside stealth mode: a note on stderr, nothing on stdout | 0 | `leak-check-not-stealth` |
-| *(new)* without a stealth config file an invalid root config is no stealth mode: the note, exit 0 | 0 | `leak-check-root-config-invalid` |
+| *(new)* without a stealth config file an invalid root config, or one with no format, is no stealth mode: the note, exit 0 | 0 | `leak-check-root-config-invalid`, `leak-check-root-config-format-missing` |
+| *(new)* in stealth mode the stealth config's format is checked: a format refusal | 2 | `leak-check-stealth-format-older` |
 
 ## la-count-comments
 
@@ -468,6 +469,7 @@ comment pagination, the polling loops' sleep-and-retry paths, the default 10-min
 time or many paged responses. Those branches are pinned by `tests/test_review_scripts.py`, not by the corpus.
 | *(new)* in stealth mode a reply body naming a leak token is refused with the hits on stderr, before any `gh` call | 1 | `shim-reply-to-pr-thread-stealth-leak-refused`, `shim-reply-invalid-coderabbit-stealth-leak-refused` |
 | *(new)* a stealth config that cannot be read refuses the reply with the config error, before any `gh` call | 2 | `shim-reply-to-pr-thread-stealth-config-broken`, `shim-reply-invalid-coderabbit-stealth-config-broken` |
+| *(new)* outside stealth mode a root config with no format does not stop the reply | 0 | `shim-reply-to-pr-thread-root-format-missing` |
 | *(new)* in stealth mode a clean body is posted as before; outside stealth mode a body naming a token is posted as before | 0 | `shim-reply-to-pr-thread-stealth-clean`, `shim-reply-invalid-coderabbit-stealth-clean`, `shim-reply-to-pr-thread-stealth-off` |
 
 ## Twin forwarding

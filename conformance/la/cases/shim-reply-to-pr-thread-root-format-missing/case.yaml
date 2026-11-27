@@ -1,0 +1,21 @@
+kind: neutral
+command: la-reply-to-pr-thread
+args:
+- https://github.com/o/r/pull/5#discussion_r1
+stdin: |
+  Fixed; la-doctor passes now
+git:
+- write:
+    living-architecture.yaml: |
+      tracker: linear
+gh:
+- match:
+  - api
+  - POST
+  - repos/o/r/pulls/5/comments/1/replies
+  stdout:
+    html_url: https://github.com/o/r/pull/5#discussion_r9
+expect:
+  exit: 0
+note: outside stealth mode a root config with no format does not stop the reply
+golden: manual

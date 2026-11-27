@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 // eslint-disable-next-line no-restricted-imports -- stdin only
 import { readFileSync } from 'node:fs';
 import { mergeBase, resolveBaseRef } from 'type-rename-move/changes';
-import { ConfigError, presentFiles } from 'type-rename-move/config';
+import { checkFormat, ConfigError, presentFiles } from 'type-rename-move/config';
 import { byCodePoint, isWordStart, manifest as trmvManifest, stealthRegistry as trmvRegistry } from 'type-rename-move/contract';
 import { loadRaw, type RawConfig, resolveRaw, tracksOpenspec } from '../config/index.js';
 import { leakTokenGroups, manifest, message, stealthRegistry } from '../contract/index.js';
@@ -146,6 +146,11 @@ export function run(root: string, base: string | null): number {
     if (!raw?.source?.stealth) {
       process.stderr.write(`${message('leaks.not-stealth')}\n`);
       return 0;
+    }
+    const refusal = checkFormat(root, 'la');
+    if (refusal !== null) {
+      process.stderr.write(`${refusal}\n`);
+      return 2;
     }
     const config = resolveRaw(root, raw);
     const tokens = leakTokens(root, config.leaks.allow);

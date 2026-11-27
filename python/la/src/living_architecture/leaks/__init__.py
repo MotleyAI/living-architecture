@@ -9,7 +9,7 @@ from pathlib import Path
 from living_architecture.config import RawConfig, load_raw, resolve_raw, tracks_openspec
 from living_architecture.contract import leak_token_groups, manifest, message, stealth_registry
 from trmv import changes
-from trmv.config import ConfigError, present_files
+from trmv.config import ConfigError, check_format, present_files
 from trmv.contract import manifest as trmv_manifest
 from trmv.contract import stealth_registry as trmv_registry
 
@@ -155,6 +155,10 @@ def run(*, base: str | None, root: Path) -> int:
         if raw is None or raw.source is None or not raw.source.stealth:
             print(message("leaks.not-stealth"), file=sys.stderr)
             return 0
+        refusal = check_format(root, "la")
+        if refusal is not None:
+            print(refusal, file=sys.stderr)
+            return 2
         config = resolve_raw(root, raw)
         tokens = leak_tokens(repo_root=root, allow=config.leaks.allow)
         if base is None:
